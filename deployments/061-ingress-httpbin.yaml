@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: httpbin-ingress
+  namespace: httpbin
+  annotations:
+    # use the shared edgenexus-ingress
+    kubernetes.io/ingress.class: "edgenexus"
+spec:
+  rules:
+  - host: edgehttpbin
+    http:
+      paths:
+      - backend:
+          service:
+            name: httpbin
+            port:
+              number: 80
+        path: /
+        pathType: Prefix

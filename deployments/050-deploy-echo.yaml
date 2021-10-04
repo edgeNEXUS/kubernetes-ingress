@@ -1,0 +1,50 @@
+# kubectl apply -f echo.yaml
+# kubectl get services -n echo
+# NAME           TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+# echo-service   ClusterIP   10.105.31.97   Pending       80/TCP    54m
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: echo
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-deployment
+  namespace: echo
+  labels:
+    app: echo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo
+  template:
+    metadata:
+      labels:
+        app: echo
+    spec:
+      containers:
+      - name: echo
+        image: mendhak/http-https-echo
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: echo
+spec:
+  selector:
+    app: echo
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
