@@ -1,0 +1,63 @@
+# EdgeNEXUS configuration for {{.Ingress.Namespace}}/{{.Ingress.Name}}
+
+upstreams:
+  {{range $upstream := .Upstreams}}
+  - name: {{$upstream.Name}}
+    servers:
+    {{range $server := $upstream.UpstreamServers}}
+      - address: {{$server.Address}}
+        port: {{$server.Port}}
+    {{end}}
+  {{end}}
+
+services:
+  {{range $server := .Servers}}
+  - hostname: "{{$server.Name}}"
+    resource_type: "ingress"
+    resource_name: "{{$.Ingress.Name}}"
+    resource_namespace: "{{$.Ingress.Namespace}}"
+
+    listeners:
+    {{if not $server.GRPCOnly}}
+    {{range $port := $server.Ports}}
+      - port: {{$port}}
+    {{- end}}
+    {{end}}
+
+    {{if $server.SSL}}
+    ssl:
+      listeners:
+      {{- range $port := $server.SSLPorts}}
+        - port: {{$port}}
+      {{- end}}
+      {{if $server.SSLRejectHandshake}}
+      ssl_reject_handshake: true
+      {{else}}
+      ssl_certificate: {{$server.SSLCertificate}}
+      ssl_certificate_key: {{$server.SSLCertificateKey}}
+      {{end}}
+    {{end}}
+
+    locations:
+    {{range $location := $server.Locations}}
+      - path: {{$location.Path}}
+        service_name: "{{$location.ServiceName}}"
+        rewrite: "{{$location.Rewrite}}"
+        upstream: "{{$location.Upstream.Name}}"
+        {{with $location.MinionIngress}}
+        # location for minion {{$location.MinionIngress.Namespace}}/{{$location.MinionIngress.Name}}
+        resource_name: "{{$location.MinionIngress.Name}}"
+        resource_namespace: "{{$location.MinionIngress.Namespace}}"
+        {{end}}
+    {{end}}
+
+    real_ip_from:
+      {{range $setRealIPFrom := $server.SetRealIPFrom}}
+      - {{$setRealIPFrom}}{{end}}
+
+    {{if $server.RealIPHeader}}
+    real_ip_header: {{$server.RealIPHeader}};{{end}}
+
+    {{if $server.RealIPRecursive}}real_ip_recursive: true{{end}}
+
+  {{end}}
