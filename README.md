@@ -1,4 +1,4 @@
-EdgeNEXUS Ingress Controller
+Edgenexus Ingress Controller
 ============================
 
 Overview
