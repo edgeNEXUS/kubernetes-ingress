@@ -4,44 +4,101 @@ Edgenexus Ingress Controller
 Overview
 --------
 
-edgenexus-ingress is an Ingress Controller (IC) for Kubernetes using EdgeNEXUS
+edgenexus-ingress is an Ingress Controller (IC) for Kubernetes using Edgenexus
 as a reverse proxy and load balancer.
 
-Preview
--------
+Get Started
+-----------
 
 In the directory `deployments`, you can find useful deployment scripts to run
 IC.
 
-1. Run `000-common.sh` to IC able to use custom RESTful resource paths on
-Kubernetes API Server. It must run just once.
+### Deploy two simple HTTP services ###
 
-2. Run `001-remove-edgenexus-cloud.sh` to remove IC, if you had it installed
-previously.
+There are two sample services that we are going to test from IC. Deploy them:
 
-3. Run `005-deploy-edgenexus-cloud.sh` to deploy and install IC. After
-installation, you scan run the script `scripts/ingress-diag.sh` to see Log
-Output of IC.
+    kubectl apply -f 010-deploy-echo.yaml
+    kubectl apply -f 011-deploy-httpbin.yaml
 
-This script uses template `005-deploy-edgenexus-cloud.yaml` for EdgeNEXUS
-working as external load balancer. Please change the following IP addresses to
-your own:
+To check deployed services:
 
-  - `loadBalancerIP: 192.168.2.132` and `-edge-balancer-ip=192.168.2.132`
-  - `-edge-external-ip=192.168.2.135`
+    kubectl get services -n echo
 
-In current configuration ADC API server is `192.168.2.132` and VS
-for Kubernetes service endpoints is `192.168.2.135`. To this VS, IC adds RS
-and set flightPATHs.
+    # NAME           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+    # echo-service   ClusterIP   10.101.119.221   <none>        80/TCP    39h
 
-IC image is `docker.io/edgenexus/edgenexus-ingress:latest` (follow
-`005-deploy-edgenexus-cloud.yaml`).
+    kubectl get services -n httpbin
 
-4. Run `050-deploy-echo.sh` to deploy and launch first service.
+    # NAME      TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+    # httpbin   ClusterIP   10.110.41.17   <none>        80/TCP    39h
 
-5. Run `051-ingress-echo.sh`. After that you can see in Log Output how IC works.
-For example, this is how IC finished with that change (run
-`scripts/ingress-diag.sh`):
+### Deploy IC ###
+
+1. Run below commands to make Edgenexus IC able to use custom RESTful resource
+paths on Kubernetes API Server:
+
+       kubectl apply -f common/k8s.edgenexus.io_globalconfigurations.yaml
+       kubectl apply -f common/k8s.edgenexus.io_policies.yaml
+       kubectl apply -f common/k8s.edgenexus.io_transportservers.yaml
+       kubectl apply -f common/k8s.edgenexus.io_virtualserverroutes.yaml
+       kubectl apply -f common/k8s.edgenexus.io_virtualservers.yaml
+
+2. If you need to remove previous Edgenexus IC deployment:
+
+       kubectl delete namespace edgenexus-ingress
+       kubectl delete clusterrole edgenexus-ingress
+       kubectl delete clusterrolebinding edgenexus-ingress
+       # AND for Kuber 1.18+ (<https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/>):
+       kubectl delete IngressClass edgenexus
+
+3. Deploy Edgenexus IC using `deploy-edgenexus-cloud.yaml`. Since Edgenexus
+is currently working as an external load balancer, please change the following
+IP addresses to your own:
+
+   - `loadBalancerIP: 192.168.2.132`
+   - `-edge-balancer-ip=192.168.2.132`
+   - `-edge-external-ip=192.168.2.135`
+
+   IC image is `docker.io/edgenexus/edgenexus-ingress:latest` and that is set
+the yaml file.
+
+   So the command to deploy IC is as follows:
+
+       kubectl apply -f deploy-edgenexus-ic-cloud.yaml
+
+       # namespace/edgenexus-ingress created
+       # serviceaccount/edgenexus-ingress created
+       # serviceaccount/edgenexus-ingress configured
+       # secret/edgenexus-ingress-default-server-tls created
+       # configmap/edgenexus-ingress created
+       # configmap/edgenexus-ingress-leader-election created
+       # clusterrole.rbac.authorization.k8s.io/edgenexus-ingress created
+       # clusterrolebinding.rbac.authorization.k8s.io/edgenexus-ingress created
+       # service/edgenexus-ingress created
+       # deployment.apps/edgenexus-ingress created
+       # ingressclass.networking.k8s.io/edgenexus created
+
+4. Get IC deployment details:
+
+       kubectl describe svc edgenexus-ingress --namespace=edgenexus-ingress
+       kubectl get pods --all-namespaces
+       # ...
+       kubectl get events --namespace=edgenexus-ingress
+
+### Enable IC for two sample services ###
+
+You can test it one by one to see changes on Edgenexus ADC:
+
+    kubectl apply -f 020-ingress-echo.yaml
+    kubectl apply -f 021-ingress-httpbin.yaml
+
+In current configuration, ADC API server is `192.168.2.132` and VS
+for Kubernetes service endpoints is `192.168.2.135` (if you didn't change
+addresses to your own). IC adds VS, RS and set flightPATHs to created VS.
+
+After applying ingress for two sample services, you can see how IC works from
+Log Output. For example, this is how IC is finished with last changes (run
+`scripts/ingress-diag.sh` to see such logs):
 
 ```
 2021-10-04 18:29:53 +0000 [14] [info ] edge/manager/web: Received request to return version of applied YAML config
@@ -60,32 +117,37 @@ For example, this is how IC finished with that change (run
 2021-10-04 18:29:57 +0000 [14] [info ] edge/manager/web: Return config version: 1
 ```
 
-6. Run `060-deploy-httpbin.sh` to deploy and launch another service in similar
-way.
+### Scale two sample services ###
 
-7. Run `061-ingress-httpbin.sh`. After that you may see in Log Output how IC
-works.
+When you scale Kubernetes services, appropriate RS/flightPATH are created on
+Edgenexus ADC by IC:
 
-8. Run `150-scale-echo.sh` to scale the first service to 2 replicas.
+    kubectl scale --replicas=2 deployment/echo-deployment -n echo
+    kubectl scale --replicas=2 deployment/httpbin -n httpbin
 
-9. Run `160-scale-httpbin.sh` to scale the second service to 2 replicas.
+### Remove two sample services ###
 
-10. Run `550-remove-echo.sh` to remove first POD.
+When you remove Kubernetes services, appropriate RS/flightPATH are removed
+from Edgenexus ADC by IC:
 
-11. Run `560-remove-httpbin.sh` to remove second POD.
+    kubectl delete ingress echo-ingress -n echo
+    kubectl delete deployments echo-deployment -n echo
 
-All corresponding changes are applied on the ADC.
+    kubectl delete ingress httpbin-ingress -n httpbin
+    kubectl delete deployments httpbin -n httpbin
+
+### Misc ###
 
 If you need to open `bash` in IC container, run `scripts/ingress-bash.sh` or
-similar command if you are not on `kubelet`.
+similar command if you are not using `kubelet`.
 
 The script `scripts/ingress-diag.sh` is to see IC logs.
 
 Container
 ---------
 
-Run `make image` to create docker image with
-IC from CentOS 6.10 amd64 base image. `build/Dockerfile` is used for that.
+Run `make image` to create docker image with IC from CentOS 6.10 amd64 base
+image. `build/Dockerfile` is used for that.
 
 Binaries `edgenexus-ingress` and `edgenexus-manager` are working on this OS.
 
@@ -97,8 +159,7 @@ Questions
 **Q:** What is RS `127.0.0.1:8181` on the ADC?
 
 **A:** This is the default server which should always return HTTP 502. It is
-used for services that have no endpoints. We need to use another solution after
-discussing what it should be.
+used for services that have no endpoints.
 
 TODO
 ----

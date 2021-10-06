@@ -1,3 +1,4 @@
+# kubectl apply -f deploy-edgenexus-ic-cloud.yaml
 apiVersion: v1
 kind: Namespace
 metadata:

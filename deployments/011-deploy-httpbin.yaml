@@ -1,28 +1,5 @@
-# https://www.fairwinds.com/blog/intro-to-kubernetes-ingress-set-up-nginx-ingress-in-kubernetes-bare-metal
-#
-# kubectl get namespace
-#
-# kubectl apply -f httpbin.yaml --record
-# kubectl delete pod,service httpbin-58dc97c579-s7np8
-#
-
-# # Flag --record has been deprecated, --record will be removed in the future
-# # service/httpbin unchanged
-# # deployment.apps/httpbin created
-#
-#
-# kubectl logs -l name=httpbin-58dc97c579-s7np8
-# kubectl describe pod httpbin-58dc97c579-nct86
-# 
-#
-#
-# kubectl api-resources | grep deployment
-# deployments                       deploy       apps/v1                                true         Deployment
-#
-# kubectl get po
-# NAME                       READY   STATUS      RESTARTS   AGE
-# httpbin-58dc97c579-zh6ff   1/1     Running     0          2m5s
-
+# kubectl apply -f 011-deploy-httpbin.yaml
+# kubectl get services -n httpbin
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -71,4 +48,3 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
-

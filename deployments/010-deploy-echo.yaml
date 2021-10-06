@@ -1,4 +1,4 @@
-# kubectl apply -f echo.yaml
+# kubectl apply -f 010-deploy-echo.yaml
 # kubectl get services -n echo
 # NAME           TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
 # echo-service   ClusterIP   10.105.31.97   Pending       80/TCP    54m

@@ -1,11 +1,11 @@
 #!/usr/bin/bash
 
-./001-remove-edgenexus-cloud.sh
+./remove-edgenexus-cloud.sh
 
 set -e
 
 echo "Apply EdgeNEXUS Ingress Controller..."
-kubectl apply -f 005-deploy-edgenexus-cloud.yaml
+kubectl apply -f ../deployments/deploy-edgenexus-ic-cloud.yaml
 echo "Applied."
 
 echo
