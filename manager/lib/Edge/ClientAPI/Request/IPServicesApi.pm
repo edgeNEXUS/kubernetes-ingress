@@ -246,7 +246,7 @@ sub update_vs {
                                    $vs->{subnetMask},  $vs->{port},
                                    $vs->{serviceType});
             if ($updated) {
-                 # Success.
+                # Success.
                 AE::log info => "Virtual service with interface ID %s, " .
                                 "channel key %s has been updated",
                                 $vs->{editedChannel}, $vs->{editedChannel};
@@ -368,7 +368,7 @@ sub create_empty_vs {
     my $guard  = 1;
     my $new_cb = _cb_nowrap sub {
         $guard &&= 1 or return;
-        my ($vips, $hdr) = @_;
+        my (undef, $hdr) = @_;
         if (!$hdr->{Success}) {
             $cb->(@_);
             return;
@@ -400,12 +400,13 @@ sub create_empty_vs {
         };
 
         # Finally, create an "empty" virtual service.
-        AE::log info => "Empty slot for Virtual Service is created";
+        AE::log info => "Create an empty slot for Virtual Service...";
         return $guard = _request($request, %arg, $cb);
     };
 
-    # First, get all virtual services.
-    $guard = get_all_vs($creds, %arg, $new_cb);
+    # Do not get all virtual services to create empty slot for virtual service.
+    #$guard = get_all_vs($creds, %arg, $new_cb);
+    $new_cb->(undef, { Success => 1 });
     return defined wantarray && AnyEvent::Util::guard { undef $guard };
 }
 
@@ -489,9 +490,19 @@ sub create_vs {
         ()
     };
 
-    # First, ensure there's no such virtual service.
-    $guard = get_vs($creds, $serviceName, $ipAddr, $subnetMask, $port,
-                     $serviceType, undef, undef, undef, %arg, $new_cb);
+    unless ($arg{-no_vs_existing_check}) {
+        # First, ensure there's no such virtual service.
+        $guard = get_vs($creds, $serviceName, $ipAddr, $subnetMask, $port,
+                         $serviceType, undef, undef, undef, %arg, $new_cb);
+    } else {
+        # We trust that there's no such virtual service. The caller must do
+        # all the checks by itself, if needed (or do not use
+        # `-no_vs_existing_check`).
+        AE::log info => "Create VS %s/%s:%s without existence check...",
+                        $ipAddr, $subnetMask, $port;
+        $guard = 1;
+        $new_cb->(undef, { Code => API_REQ_VS_NOT_FOUND });
+    }
 
     return defined wantarray && AnyEvent::Util::guard { undef $guard };
 }
@@ -520,6 +531,10 @@ sub delete_vs {
         my ($json, $hdr) = @_;
         # Check JSON for StatusText and set error (if any).
         _try_to_populate_error $json, $hdr, 'delete_vs', 'delete a VS';
+        return unless $hdr->{Success};
+
+        my $vips = _get_vips_from_json %$json; # Can be undefined.
+        $_[0] = $vips;
         ()
     };
 
@@ -612,6 +627,7 @@ sub change_basic_settings {
                                 $vs->{editedInterface}, $vs->{editedChannel});
             if ($updated) {
                 # Success.
+                AE::log info => "Basic settings have been changes";
                 $_[0] = $updated;
                 return;
             }
@@ -619,6 +635,7 @@ sub change_basic_settings {
         ()
     };
 
+    AE::log info => "Change basic settings...";
     return _request($request, %arg, $cb);
 }
 
@@ -742,6 +759,7 @@ sub create_rs_empty {
             my $updated = _find_vs_by_ids(@$vips, $iface_id, $channel_id);
             if ($updated) {
                 # Success. Return only updated VS.
+                AE::log info => 'Empty slot for real server has been created';
                 $_[0] = $updated;
                 return;
             }
@@ -752,7 +770,7 @@ sub create_rs_empty {
         ()
     };
 
-    AE::log debug => 'Create an "empty" Real Server...';
+    AE::log info => 'Create empty slot for real server...';
     return _request($request, %arg, $cb);
 }
 
@@ -915,7 +933,7 @@ sub init_rs_multi {
                 if ($last_flag) {
                     # No more $rs to init, so destroy $guard.
                     pop @state;
-                    $cb->(undef, $hdr);
+                    $cb->($vs, $hdr);
                     return;
                 }
 

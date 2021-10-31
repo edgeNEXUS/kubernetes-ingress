@@ -307,8 +307,12 @@ sub _request($@) {
             AE::log info => "Received API response from %s request to '%s'...",
                             $request->{Method}, $url_str;
 
-            AE::log trace => "HTTP result: %s",
-                             length $body ? $body : '[EMPTY]';
+            if (Edge::ClientAPI::Logging::is_debug()) {
+                # Body may be large, omit passing it to this subroutine, though
+                # trace is off when debug level is off.
+                AE::log trace => "HTTP result: %s",
+                                 length $body ? $body : '[EMPTY]';
+            }
 
             # Internal params in headers are capitalized.
             $hdr = { %$hdr, %$request, Queried => $queried };

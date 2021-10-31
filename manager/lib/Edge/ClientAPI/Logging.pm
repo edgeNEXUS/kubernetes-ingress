@@ -5,6 +5,7 @@ use POSIX ();
 use Edge::ClientAPI::Util::Log;
 
 our $VERSION = $Edge::ClientAPI::VERSION;
+our $LOG_FILE //= "edge-client-api.log";
 
 my ($is_debug, $is_trace, $level) = (0, 0, 'info');
 
@@ -30,6 +31,23 @@ sub setup {
 
     $AnyEvent::Log::FILTER->level($level);
 
+    ()
+}
+
+sub enable_log_to_file() {
+    die "No log file path" unless length $LOG_FILE;
+    my $fh;
+    unless (open $fh, '>>', $LOG_FILE) {
+        AE::log error => "Couldn't open log file %s for writing: %s; " .
+                         "skip logging to file", $LOG_FILE, $!;
+        return;
+    }
+
+    close $fh;
+
+    # All logs to be put in file including trace.
+    $AnyEvent::Log::COLLECT->attach (
+       new AnyEvent::Log::Ctx log_to_file => $LOG_FILE);
     ()
 }
 

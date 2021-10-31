@@ -15,6 +15,7 @@ use Edge::ClientAPI::E;
 $Carp::Internal{ (__PACKAGE__) } = 1;
 
 our $TIMEOUT = 120;
+our $VERSION = $Edge::ClientAPI::VERSION;
 
 sub new {
     my ($class, @args) = @_;

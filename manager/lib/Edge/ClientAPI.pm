@@ -5,8 +5,10 @@ BEGIN { our $VERSION = '1.01' }
 use Carp;
 use Data::Dumper;
 use Edge::ClientAPI::Data;
+use Edge::ClientAPI::Creds;
 use Edge::ClientAPI::async;
 use Edge::ClientAPI::sync;
+use Edge::ClientAPI::coro;
 use Edge::ClientAPI::Object;
 use Edge::ClientAPI::E
     EDGE_SUCCESS => [ 0000, "Success" ],
@@ -29,6 +31,14 @@ sub sync {
         return Edge::ClientAPI::sync->new(@_);
     };
     goto \&sync;
+}
+
+sub coro {
+    no warnings 'redefine';
+    *coro = sub {
+        return Edge::ClientAPI::coro->new(@_);
+    };
+    goto \&coro;
 }
 
 1;

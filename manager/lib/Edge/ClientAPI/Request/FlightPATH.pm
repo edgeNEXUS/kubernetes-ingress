@@ -14,7 +14,9 @@ use Edge::ClientAPI::E;
 use base Exporter::;
 our $VERSION = $Edge::ClientAPI::VERSION;
 our @EXPORT  = qw(create_fp_custom_forward
-                  remove_fp_custom_forward);
+                  remove_fp_custom_forward
+                  apply_fp_by_name
+                  unapply_fp_by_name);
 
 sub Edge::ClientAPI::Request::alb_api::error {
     my ($msg, $fatal) = @_;
@@ -81,6 +83,126 @@ sub create_fp_custom_forward {
 sub remove_fp_custom_forward {
     return __fo(@_, '__remove_fp_custom_forward');
 }
+
+sub apply_fp_by_name {
+    my $cb      = _cb_wrap pop;
+    my $creds   = shift;
+    my $name    = shift;
+    my $vs      = shift;
+    my %arg     = @_;
+    my $options = +{};
+    my $request = { Operation   => 9,
+                    Method      => 'POST',
+                    QueryString => 'iAction=4&iType=1',
+                    InputType   => 'json',
+                    OutputType  => 'json',
+                    Host        => $creds->host,
+                    Port        => $creds->port,
+                    Cookie      => { GUID => $creds->guid },
+                    Parameters  => $options };
+
+    unless (!ref $name && length $name) {
+        return $cb->(undef, { %$request, Code   => API_REQ_INPUT_INVALID,
+                        Detail => "Invalid flightPATH name for apply" });
+    }
+
+    unless ($vs->$_isa('Edge::ClientAPI::Object::VS')) {
+        return $cb->(undef, { %$request, Code   => API_REQ_INPUT_INVALID,
+                        Detail => "Invalid VS object" });
+    }
+
+    $options->{editedInterface}    = $vs->interface_id;
+    $options->{editedChannel}      = $vs->channel_id;
+    $options->{CheckChannelKey}    = $vs->channel_key;
+    $options->{flightPathName}     = $name;
+    $options->{flightPathDropName} = '';
+    $options->{flightPathDropId}   = '';
+
+    $arg{on_success} = sub {
+        my ($json, $hdr) = @_;
+
+        if (defined $json->{StatusImage} &&
+            $json->{StatusText} ne 'Your changes have been applied') {
+
+            if ($json->{StatusText} =~ /Terminal flightPATH rule .*? can prevent later rules from running./) {
+                # Issue a warning message
+                AE::log warn => "ALB API request to apply FPs raised a " .
+                                "warning in apply_by_id(): " .
+                                "'%s'", $json->{StatusText};
+                # Success.
+            }
+            else {
+                $hdr->{Success} = 0;
+                $hdr->{Detail}  = "ALB API request to apply FPs failed in " .
+                                  "apply_fp_by_id(): '%s'", $json->{StatusText};
+            }
+        }
+        ()
+    };
+
+    return _request($request, %arg, $cb);
+}
+
+sub unapply_fp_by_name {
+    my $cb      = _cb_wrap pop;
+    my $creds   = shift;
+    my $name    = shift;
+    my $vs      = shift;
+    my %arg     = @_;
+    my $options = +{};
+    my $request = { Operation   => 9,
+                    Method      => 'POST',
+                    QueryString => 'iAction=4&iType=2',
+                    InputType   => 'json',
+                    OutputType  => 'json',
+                    Host        => $creds->host,
+                    Port        => $creds->port,
+                    Cookie      => { GUID => $creds->guid },
+                    Parameters  => $options };
+
+    unless (!ref $name && length $name) {
+        return $cb->(undef, { %$request, Code   => API_REQ_INPUT_INVALID,
+                        Detail => "Invalid flightPATH name for unapply" });
+    }
+
+    unless ($vs->$_isa('Edge::ClientAPI::Object::VS')) {
+        return $cb->(undef, { %$request, Code   => API_REQ_INPUT_INVALID,
+                        Detail => "Invalid VS object" });
+    }
+
+    $options->{editedInterface}    = $vs->interface_id;
+    $options->{editedChannel}      = $vs->channel_id;
+    $options->{CheckChannelKey}    = $vs->channel_key;
+    $options->{flightPathName}     = $name;
+    $options->{flightPathDropName} = '';
+    $options->{flightPathDropId}   = '';
+
+    $arg{on_success} = sub {
+        my ($json, $hdr) = @_;
+
+        if (defined $json->{StatusImage} &&
+            $json->{StatusText} ne 'Your changes have been applied') {
+
+            if ($json->{StatusText} =~ /Terminal flightPATH rule .*? can prevent later rules from running./) {
+                # Issue a warning message
+                AE::log warn => "ALB API request to unapply FPs raised a " .
+                                "warning in unapply_by_id(): " .
+                                "'%s'", $json->{StatusText};
+                # Success.
+            }
+            else {
+                $hdr->{Success} = 0;
+                $hdr->{Detail}  = "ALB API request to unapply FPs failed in " .
+                                  "unapply_fp_by_id(): '%s'",
+                                  $json->{StatusText};
+            }
+        }
+        ()
+    };
+
+    return _request($request, %arg, $cb);
+}
+
 # ----------------------------------------------------------------------
 # Private functions for API
 # ----------------------------------------------------------------------
@@ -105,7 +227,7 @@ sub __create_fp_custom_forward {
     # If FP is not found, error is not to be raised.
     __remove_fp_custom_forward(undef, $creds, $vs_has_fp, $fp_name, %arg);
 
-    AE::log info => "Create flight PATH with name '%s' from scratch...",
+    AE::log info => "Create flightPATH with name '%s' from scratch...",
                     $fp_name;
     my $fp_id;
 
@@ -129,12 +251,12 @@ sub __create_fp_custom_forward {
 
         unless (length $fp_id) {
             Edge::ClientAPI::Request::alb_api::error(
-                    "Couldn't create flight PATH with name '$fp_name'");
+                    "Couldn't create flightPATH with name '$fp_name'");
             return;
         }
     }
 
-    AE::log info => "Create condition 'Host' for flight PATH with name '%s'...",
+    AE::log info => "Create condition 'Host' for flightPATH with name '%s'...",
                     $fp_name;
 
     my $href = Edge::ClientAPI::Request::alb_api::create_fp_condition(
@@ -149,7 +271,7 @@ sub __create_fp_custom_forward {
                         $domain
     );
 
-    AE::log info => "Create condition 'Path' for flight PATH with name '%s'...",
+    AE::log info => "Create condition 'Path' for flightPATH with name '%s'...",
                     $fp_name;
 
     my $href = Edge::ClientAPI::Request::alb_api::create_fp_condition(
@@ -164,7 +286,7 @@ sub __create_fp_custom_forward {
                         $path_start
     );
 
-    AE::log info => "Create action 'User Server' for flight PATH " .
+    AE::log info => "Create action 'Use Server' for flightPATH " .
                     "with name '%s'...", $fp_name;
     my $href = Edge::ClientAPI::Request::alb_api::create_fp_action(
                         $creds->get_url,
@@ -176,18 +298,18 @@ sub __create_fp_custom_forward {
                         undef
     );
 
-    AE::log info => "Create action 'Replace Request Header' for flight PATH " .
-                    "with name '%s'...", $fp_name;
-
-    my $href = Edge::ClientAPI::Request::alb_api::create_fp_action(
-                        $creds->get_url,
-                        $creds->guid,
-                        $fp_id,
-                        $fp_name,
-                        "Replace Request Header",
-                        "$rs_host",
-                        undef
-    );
+    #AE::log info => "Create action 'Replace Request Header' for flightPATH " .
+    #                "with name '%s'...", $fp_name;
+    #
+    #my $href = Edge::ClientAPI::Request::alb_api::create_fp_action(
+    #                    $creds->get_url,
+    #                    $creds->guid,
+    #                    $fp_id,
+    #                    $fp_name,
+    #                    "Replace Request Header",
+    #                    "$rs_host",
+    #                    undef
+    #);
 
     my $href = Edge::ClientAPI::Request::alb_api::manage_vs_fps(
                         $creds->get_url,
@@ -283,7 +405,7 @@ sub __remove_fp_custom_forward {
         }
 
         try {
-            AE::log info => "Unapply flight PATH with name '%s'...", $fp_name;
+            AE::log info => "Unapply flightPATH with name '%s'...", $fp_name;
             my $href = Edge::ClientAPI::Request::alb_api::manage_vs_fps_by_ids(
                                 $creds->get_url,
                                 $creds->guid,
@@ -308,7 +430,7 @@ sub __remove_fp_custom_forward {
     }
 
     try {
-        AE::log info => "Remove flight PATH by name '%s'...", $fp_name;
+        AE::log info => "Remove flightPATH by name '%s'...", $fp_name;
         Edge::ClientAPI::Request::alb_api::remove_fp(
                     $creds->get_url,
                     $creds->guid,

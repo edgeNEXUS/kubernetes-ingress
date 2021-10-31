@@ -157,6 +157,10 @@ sub get_url {
 sub clone { # $self
     my $self = shift;
     my %copy = %$self;
+    for (sort keys %$self) {
+        $copy{$_} = $self->{$_};
+    }
+
     return bless \%copy, ref $self;
 }
 

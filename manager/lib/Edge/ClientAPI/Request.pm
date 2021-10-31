@@ -52,6 +52,8 @@ our @METHODS = qw(
 
     create_fp_custom_forward
     remove_fp_custom_forward
+    apply_fp_by_name
+    unapply_fp_by_name
 );
 
 # ----------------------------------------------------------------------
