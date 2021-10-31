@@ -1,10 +1,9 @@
-package Edge::ClientAPI::sync;
+package Edge::ClientAPI::coro;
 use common::sense;
 use Edge::ClientAPI::async;
 use Carp;
 use AnyEvent;
 use Data::Dumper;
-#use Devel::GlobalDestruction;
 
 $Carp::Internal{ (__PACKAGE__) } = 1;
 
@@ -12,7 +11,8 @@ our $VERSION = $Edge::ClientAPI::VERSION;
 
 sub new {
     my $class = shift;
-    my $async = Edge::ClientAPI::async->new(@_);
+    my @args  = @_;
+    my $async = Edge::ClientAPI::async->new(@args);
     return bless \ $async, $class;
 }
 
@@ -28,6 +28,8 @@ push @methods, qw(
     ADV_remove_ssl_cert
 );
 
+eval q{ require Coro };
+
 for my $method (@methods) {
     no strict 'refs';
 
@@ -35,26 +37,12 @@ for my $method (@methods) {
         my ($self, @args) = @_;
         my (@results, @errors);
 
-        my $cv = condvar AnyEvent;
-        my @ret;
+        my $cb = Coro::rouse_cb();
 
-        $$self->$method(@args,
-            sub {
-                @ret = @_;
-                $cv->send;
-                ()
-            }
-        );
-
-        $cv->recv;
-
+        $$self->$method(@args, $cb);
+        my @ret = Coro::rouse_wait();
         return @ret;
     };
 }
-
-#sub DESTROY {
-#    my ($self) = @_;
-#    return if in_global_destruction;
-#}
 
 1;

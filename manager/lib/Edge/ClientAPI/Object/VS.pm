@@ -68,6 +68,26 @@ sub get_fp_name_by_idx {
     return undef;
 }
 
+sub get_fp_names_by_regex {
+    my ($self, $regex) = @_;
+    return undef unless ref $regex eq 'Regexp';
+    my $fp = $self->fp;
+    return undef unless $fp;
+
+    my %names;
+    for (@{$fp->{flightPathId}}) {
+        if ($_->{Name} =~ $regex) {
+            if ($_->{flightPathSelected} > 0) {
+                $names{$_->{Name}} = 1;
+            } else {
+                # Not enabled/applied.
+            }
+        }
+    }
+
+    return %names ? [ sort keys %names ] : undef;
+}
+
 sub is_enabled {
     my ($self) = @_;
     return $self->{localPortEnabledChecked} eq 'true' ? 1 : 0;
@@ -107,6 +127,36 @@ sub has_fp_by_name {
     return defined $id ? 1 : 0;
 }
 
+sub has_rs {
+    my ($self, $addr, $port) = @_;
+    return 0 unless ref $self->{contentServer} eq 'HASH';
+    my $rss = $self->{contentServer}{CServerId};
+    return 0 unless ref $rss eq 'ARRAY' && @$rss;
+
+    for my $hash (@$rss) {
+        if ($hash->{CSIPAddr} eq $addr &&
+            $hash->{CSPort}   == $port) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+sub enum_rs {
+    my ($self, $cb) = @_;
+    return unless ref $self->{contentServer} eq 'HASH';
+    my $rss = $self->{contentServer}{CServerId};
+    return unless ref $rss eq 'ARRAY' && @$rss;
+
+    for my $hash (@$rss) {
+        # Return even empty RS that has no length at $hash->{CSIPAddr}.
+        $cb->($hash); # CSIPAddr and CSPort define RS IP/Port.
+    }
+    ()
+}
+
+sub service_name { $_[0]{serviceName} }
 sub interface_id { $_[0]{InterfaceID} }
 sub channel_id   { $_[0]{ChannelID}   }
 sub channel_key  { $_[0]{ChannelKey}  }
