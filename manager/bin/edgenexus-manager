@@ -1,0 +1,57 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+BEGIN {
+    # DISTNAME # do not remove this line
+    # GITTAG   # do not remove this line
+
+    $Edge::Manager::DIST //= 0;
+
+    unless ($Edge::Manager::DIST || exists &static::find) {
+        # Script is running from local directory, most probably from the source
+        # code repository. You can use here FindBin or anything else.
+        use FindBin;
+        use lib "$FindBin::Bin/../lib";
+        #unshift @INC, '../lib';
+    }
+}
+use Edge::Manager::App;
+
+Edge::Manager::App->run(@ARGV);
+
+__END__
+
+=head1 NAME
+
+edgenexus-manager - Run Edgenexus Manager through YAML file
+
+=head1 SYNOPSIS
+
+edgenexus-manager [options]
+
+ Options:
+   --help             brief help message
+   --version          show program version
+   --test             run program to check dependencies and assets, and exit
+
+   --config-dir       path to directory with config data of this program
+                      (default: /etc/edgenexus-manager)
+
+   --lib-dir          path to directory for working files of this program
+                      (default: /var/lib/edgenexus-manager)
+
+   --log-dir          path to directory for logs of this program
+                      (default: /var/log/edgenexus-manager)
+
+   --signal=STRING    signal for sending to EdgeNEXUS Manager main process
+
+   --pid-file=STRING  path to PID file of EdgeNEXUS Manager
+                      (default: {--lib-dir}/manager.pid)
+
+=back
+
+=head1 DESCRIPTION
+
+B<This program> will run Edge::Manager.
+
+=cut
