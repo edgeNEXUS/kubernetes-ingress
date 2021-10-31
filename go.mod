@@ -1,0 +1,17 @@
+module github.com/SmartCodeMaker/kubernetes-ingress
+
+go 1.17
+
+require (
+	github.com/aws/aws-sdk-go-v2/config v1.8.2
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.5.1
+	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
+	github.com/golang/glog v1.0.0
+	github.com/google/go-cmp v0.5.6
+	github.com/spiffe/go-spiffe v1.1.0
+	k8s.io/api v0.22.2
+	k8s.io/apimachinery v0.22.2
+	k8s.io/client-go v0.22.2
+	k8s.io/code-generator v0.22.2
+	sigs.k8s.io/controller-tools v0.7.0
+)
