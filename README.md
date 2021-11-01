@@ -37,18 +37,18 @@ To check deployed services:
 1. Run below commands to make Edgenexus IC able to use custom RESTful resource
 paths on Kubernetes API Server:
 
-       kubectl apply -f common/k8s.edgenexus.io_globalconfigurations.yaml
-       kubectl apply -f common/k8s.edgenexus.io_policies.yaml
-       kubectl apply -f common/k8s.edgenexus.io_transportservers.yaml
-       kubectl apply -f common/k8s.edgenexus.io_virtualserverroutes.yaml
-       kubectl apply -f common/k8s.edgenexus.io_virtualservers.yaml
+       kubectl apply -f common/crds/k8s.edgenexus.io_globalconfigurations.yaml
+       kubectl apply -f common/crds/k8s.edgenexus.io_policies.yaml
+       kubectl apply -f common/crds/k8s.edgenexus.io_transportservers.yaml
+       kubectl apply -f common/crds/k8s.edgenexus.io_virtualserverroutes.yaml
+       kubectl apply -f common/crds/k8s.edgenexus.io_virtualservers.yaml
 
 2. If you need to remove previous Edgenexus IC deployment:
 
        kubectl delete namespace edgenexus-ingress
        kubectl delete clusterrole edgenexus-ingress
        kubectl delete clusterrolebinding edgenexus-ingress
-       # AND for Kuber 1.18+ (<https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/>):
+       # AND for k8s 1.18+ (<https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/>):
        kubectl delete IngressClass edgenexus
 
 3. Deploy Edgenexus IC using `deploy-edgenexus-cloud.yaml`. Since Edgenexus
@@ -161,6 +161,22 @@ Questions
 **A:** This is the default server which should always return HTTP 502. It is
 used for services that have no endpoints.
 
+Development
+-----------
+
+To build project in container and push image to
+`edgenexus/edgenexus-ingress:latest-centos8`:
+
+    make centos8-image-push TARGET=container
+
+Or to build project locally (Go 1.17 must be installed on your machine):
+
+    make centos8-image
+
+When local build is done, make Docker push to `$PREFIX` and `$TAG`:
+
+    make push
+
 TODO
 ----
 
@@ -171,7 +187,3 @@ TODO
 5. Clean source code after finalization.
 6. Use helm templates (can be copied from NGINX IC -- Apache License,
 Version 2.0).
-7. Do we need Prometheus metrics? If so, solve error: `Failed to get
-http://config-status/stub_status: Get "http://config-status/stub_status": dial
-unix /var/lib/edgenexus-manager/edge-status.sock: connect: no such file or
-directory`
