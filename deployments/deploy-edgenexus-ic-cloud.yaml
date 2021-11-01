@@ -224,25 +224,18 @@ spec:
     metadata:
       labels:
         app: edgenexus-ingress
-      #annotations:
-      #  prometheus.io/scrape: "true"
-      #  prometheus.io/port: "9113"
-      #  prometheus.io/scheme: "http"
     spec:
       serviceAccountName: edgenexus-ingress
       hostNetwork: false
       containers:
       - name: edgenexus-ingress
-        image: "docker.io/edgenexus/edgenexus-ingress:latest"
+        image: "docker.io/edgenexus/edgenexus-ingress:latest-centos8"
         imagePullPolicy: "IfNotPresent"
         ports:
         - name: http
           containerPort: 80
         - name: https
           containerPort: 443
-
-        #- name: prometheus
-        #  containerPort: 9113
         - name: readiness-port
           containerPort: 8081
         readinessProbe:
@@ -287,9 +280,6 @@ spec:
           - -external-service=edgenexus-ingress
           - -enable-leader-election=true
           - -leader-election-lock-name=edgenexus-ingress-leader-election
-          - -enable-prometheus-metrics=true
-          - -prometheus-metrics-listen-port=9113
-          - -prometheus-tls-secret=
           - -enable-custom-resources=true
           - -enable-tls-passthrough=false
           - -enable-snippets=false
