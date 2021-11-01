@@ -1,3 +1,37 @@
+# Eclipse files
+.classpath
+.project
+.settings/**
+
+# Emacs save files
+*~
+\#*\#
+.\#*
+
+# Vim-related files
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+
+# Ingress Controller binaries
+edgenexus-ingress
+!edgenexus-ingress/
+cmd/edgenexus-ingress/edgenexus-ingress
+
+# Visual Studio Code settings
+.vscode
+
+# Default certificate and key
+default.pem
+
+# IntelliJ IDEA
+.idea
+
+# Platform specific CRD schema generation scripts
+hack/controller-gen-*
+
 *.bak
 *.dev
 .temp/
