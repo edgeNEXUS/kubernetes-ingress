@@ -1,4 +1,4 @@
-PREFIX = edgenexus/edgenexus-ingress
+PREFIX ?= edgenexus/edgenexus-ingress
 GIT_COMMIT = $(shell git rev-parse HEAD || echo unknown)
 GIT_COMMIT_SHORT = $(shell echo ${GIT_COMMIT} | cut -c1-7)
 GIT_TAG = $(shell git describe --tags --abbrev=0 || echo untagged)
@@ -10,6 +10,7 @@ TARGET ?= local
 override DOCKER_BUILD_OPTIONS += --build-arg IC_VERSION=$(VERSION) --build-arg GIT_COMMIT=$(GIT_COMMIT) --build-arg DATE=$(DATE)
 DOCKER_CMD = docker build $(DOCKER_BUILD_OPTIONS) --target $(TARGET) -f build/Dockerfile -t $(PREFIX):$(TAG) .
 
+export BUILDKIT_PROGRESS = plain
 export DOCKER_BUILDKIT = 1
 
 .DEFAULT_GOAL:=help
@@ -45,21 +46,21 @@ build-goreleaser: ## Build Edgenexus Ingress Controller binary using GoReleaser
 .PHONY: centos8-image
 centos8-image: build ## Create Docker image for Ingress Controller (centos8)
 	$(DOCKER_CMD) --build-arg BUILD_OS=centos8
+	docker tag $(PREFIX):$(TAG) $(PREFIX):$(TAG)-centos8
+	docker tag $(PREFIX):$(TAG) $(PREFIX):latest-centos8
 
 .PHONY: centos6-image
 centos6-image: build ## Create Docker image for Ingress Controller (centos6)
 	$(DOCKER_CMD) --build-arg BUILD_OS=centos6
+	docker tag $(PREFIX):$(TAG) $(PREFIX):$(TAG)-centos6
+	docker tag $(PREFIX):$(TAG) $(PREFIX):latest-centos6
 
 .PHONY: centos8-image-push
 centos8-image-push: centos8-image ## Docker push to $PREFIX:$TAG-centos8 and $PREFIX:latest-centos8
-	docker tag $(PREFIX):$(TAG) $(PREFIX):$(TAG)-centos8
-	docker tag $(PREFIX):$(TAG) $(PREFIX):latest-centos8
 	docker push $(PREFIX):latest-centos8
 
 .PHONY: centos6-image-push
 centos6-image-push: centos6-image ## Docker push to $PREFIX:$TAG-centos6 and $PREFIX:latest-centos6
-	docker tag $(PREFIX):$(TAG) $(PREFIX):$(TAG)-centos6
-	docker tag $(PREFIX):$(TAG) $(PREFIX):latest-centos6
 	docker push $(PREFIX):latest-centos6
 
 .PHONY: all-images ## Create all the Docker images for Ingress Controller
