@@ -150,6 +150,8 @@ type MainConfig struct {
 	HealthStatus                       bool
 	HealthStatusURI                    string
 	EdgeBalancerIP                     string
+	EdgeBalancerUser                   string
+	EdgeBalancerPass                   string
 	EdgeExternalIP                     string
 	HTTP2                              bool
 	HTTPSnippets                       []string

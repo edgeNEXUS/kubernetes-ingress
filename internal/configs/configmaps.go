@@ -514,6 +514,8 @@ func GenerateEdgeMainConfig(staticCfgParams *StaticConfigParams, config *ConfigP
 		HealthStatus:                       staticCfgParams.HealthStatus,
 		HealthStatusURI:                    staticCfgParams.HealthStatusURI,
 		EdgeBalancerIP:                     staticCfgParams.EdgeBalancerIP,
+		EdgeBalancerUser:                   staticCfgParams.EdgeBalancerUser,
+		EdgeBalancerPass:                   staticCfgParams.EdgeBalancerPass,
 		EdgeExternalIP:                     staticCfgParams.EdgeExternalIP,
 		HTTP2:                              config.HTTP2,
 		HTTPSnippets:                       config.MainHTTPSnippets,

@@ -54,6 +54,10 @@ var (
 
 	edgeBalancerIP = flag.String("edge-balancer-ip", "127.0.0.1", `Set EdgeNEXUS ADC IP address. (default 127.0.0.1)`)
 
+	edgeBalancerUser = flag.String("edge-balancer-user", "admin", `Set EdgeNEXUS username to access API. (default admin)`)
+
+	edgeBalancerPass = flag.String("edge-balancer-pass", "jetnexus", `Set EdgeNEXUS password to access API. (default jetnexus)`)
+
 	edgeExternalIP = flag.String("edge-external-ip", "192.168.0.1", `Set EdgeNEXUS external IPv4 address. (default 192.168.0.1)`)
 
 	proxyURL = flag.String("proxy", "",
@@ -490,6 +494,8 @@ func main() {
 		HealthStatus:                   *healthStatus,
 		HealthStatusURI:                *healthStatusURI,
 		EdgeBalancerIP:                 *edgeBalancerIP,
+		EdgeBalancerUser:               *edgeBalancerUser,
+		EdgeBalancerPass:               *edgeBalancerPass,
 		EdgeExternalIP:                 *edgeExternalIP,
 		EdgeStatus:                    *edgeStatus,
 		EdgeStatusAllowCIDRs:          allowedCIDRs,

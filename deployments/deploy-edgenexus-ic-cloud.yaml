@@ -271,6 +271,8 @@ spec:
           - -health-status=false
           - -health-status-uri=/edge-health
           - -edge-balancer-ip=192.168.2.132
+          - -edge-balancer-user=admin
+          - -edge-balancer-pass=jetnexus
           - -edge-external-ip=192.168.2.135
           - -v=1
           - -edge-status=true

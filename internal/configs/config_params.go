@@ -106,6 +106,8 @@ type StaticConfigParams struct {
 	HealthStatus                   bool
 	HealthStatusURI                string
 	EdgeBalancerIP                 string
+	EdgeBalancerUser               string
+	EdgeBalancerPass               string
 	EdgeExternalIP                 string
 	EdgeStatus                    bool
 	EdgeStatusAllowCIDRs          []string
