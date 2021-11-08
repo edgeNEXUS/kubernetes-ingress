@@ -27,6 +27,16 @@ To check deployed services:
     # NAME           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
     # echo-service   ClusterIP   10.101.119.221   <none>        80/TCP    39h
 
+    kubectl get events --namespace=echo
+
+    # LAST SEEN   TYPE     REASON           OBJECT                                MESSAGE
+    # 15s         Normal   SandboxChanged   pod/echo-deployment-b97d6c86f-pphwv   Pod sandbox changed, it will be killed and re-created.
+    # 14s         Normal   Pulling          pod/echo-deployment-b97d6c86f-pphwv   Pulling image "mendhak/http-https-echo"
+    # 13s         Normal   Pulled           pod/echo-deployment-b97d6c86f-pphwv   Successfully pulled image "mendhak/http-https-echo" in 1.026127723s
+    # 13s         Normal   Created          pod/echo-deployment-b97d6c86f-pphwv   Created container echo
+    # 13s         Normal   Started          pod/echo-deployment-b97d6c86f-pphwv   Started container echo
+    # 42s         Normal   AddedOrUpdated   ingress/echo-ingress                  Configuration for echo/echo-ingress was added or updated
+
     kubectl get services -n httpbin
 
     # NAME      TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
@@ -58,6 +68,11 @@ IP addresses to your own:
    - `loadBalancerIP: 192.168.2.132`
    - `-edge-balancer-ip=192.168.2.132`
    - `-edge-external-ip=192.168.2.135`
+
+   You can set Edgenexus ADC username and password:
+
+   - `-edge-balancer-user=admin`
+   - `-edge-balancer-pass=jetnexus`
 
    IC image is `docker.io/edgenexus/edgenexus-ingress:latest` and that is set
 the yaml file.
@@ -91,6 +106,21 @@ You can test it one by one to see changes on Edgenexus ADC:
 
     kubectl apply -f 020-ingress-echo.yaml
     kubectl apply -f 021-ingress-httpbin.yaml
+
+Please note that file `020-ingress-echo.yaml` has SSL certificate for HTTPS
+defined as:
+
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: echo-secret
+  namespace: echo
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS...
+  tls.key: LS0tLS...
+```
 
 In current configuration, ADC API server is `192.168.2.132` and VS
 for Kubernetes service endpoints is `192.168.2.135` (if you didn't change
