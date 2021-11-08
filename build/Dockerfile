@@ -97,6 +97,7 @@ ADD ./manager /staticperl/src/github.com/edgeNEXUS/kubernetes-ingress/edgenexus-
 RUN cp /staticperl/.staticperlrc /staticperl/src/github.com/edgeNEXUS/kubernetes-ingress/edgenexus-manager/manager/build/
 WORKDIR /staticperl/src/github.com/edgeNEXUS/kubernetes-ingress/edgenexus-manager/manager/build
 RUN make
+RUN /staticperl/src/github.com/edgeNEXUS/kubernetes-ingress/edgenexus-manager/manager/build/bin/edgenexus-manager -t
 
 
 ########### Create image with edgenexus-ingress built in container #############
