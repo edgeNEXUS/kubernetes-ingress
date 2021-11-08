@@ -16,6 +16,9 @@ RUN groupadd --system --gid 101 edgenexus \
 ############################# Base image for CentOS 8 ##########################
 FROM centos:8 AS centos8
 
+RUN yum update -y
+RUN yum clean all
+
 RUN groupadd --system --gid 101 edgenexus \
     && useradd --system --gid edgenexus --no-create-home \
                --home-dir /nonexistent --comment "edgenexus user" \
