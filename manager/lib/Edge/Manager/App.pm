@@ -294,10 +294,10 @@ sub parse_options {
     #}
 
     my %api = (
-        user => 'admin',
-        pass => 'jetnexus',
-        host => '127.0.0.1', # Host is to be changed by config files.
-        port => 443,
+        user => 'admin',     # Default username (to be changed by config files).
+        pass => 'jetnexus',  # Default password (to be changed by config files).
+        host => '127.0.0.1', # Host must be changed by config files.
+        port => 443,         # Port cannot be changed by config files.
     );
     $self->{api_creds} = Edge::ClientAPI::Creds->new(%api);
 
