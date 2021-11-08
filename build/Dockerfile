@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1.3
-ARG BUILD_OS=centos
+ARG BUILD_OS=centos8
+ARG PREFIX=edgenexus/edgenexus-ingress
 ARG FILES=
 ARG EDGENEXUS_VERSION=4.2.8
 
@@ -85,7 +86,9 @@ RUN CGO_ENABLED=0 GO111MODULE=on GOOS=linux GOARCH=$TARGETARCH \
 
 
 ############### Build edgenexus-manager in static Perl container ###############
-FROM smartcodemaker/staticperl:latest-$BUILD_OS AS perl_builder
+# e.g. edgenexus/edgenexus-ingress:staticperl-v1-centos8
+FROM $PREFIX:staticperl-v1-$BUILD_OS AS perl_builder
+ARG PREFIX
 ARG BUILD_OS
 ARG IC_VERSION
 ARG GIT_COMMIT

@@ -7,7 +7,7 @@ VERSION = $(GIT_TAG)-SNAPSHOT-$(GIT_COMMIT_SHORT)
 TAG = $(VERSION:v%=%)
 TARGET ?= local
 
-override DOCKER_BUILD_OPTIONS += --build-arg IC_VERSION=$(VERSION) --build-arg GIT_COMMIT=$(GIT_COMMIT) --build-arg DATE=$(DATE)
+override DOCKER_BUILD_OPTIONS += --build-arg IC_VERSION=$(VERSION) --build-arg PREFIX=$(PREFIX) --build-arg GIT_COMMIT=$(GIT_COMMIT) --build-arg DATE=$(DATE)
 DOCKER_CMD = docker build $(DOCKER_BUILD_OPTIONS) --target $(TARGET) -f build/Dockerfile -t $(PREFIX):$(TAG) .
 
 export BUILDKIT_PROGRESS = plain
