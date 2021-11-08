@@ -54,6 +54,8 @@ TARGET_FLAGS=-MConfig_heavy.pl \
              -MFile::Temp \
              -MFindBin \
              -MYAML::Tiny \
+             -MIO::Socket::SSL \
+             -MCrypt::OpenSSL::PKCS12 \
              -Mlib
 
 include $(current_dir)app.mk
