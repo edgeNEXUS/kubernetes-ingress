@@ -9,14 +9,17 @@ use Edge::ClientAPI;
 use Edge::ClientAPI::Request::_Base;
 use Edge::ClientAPI::Request::alb_api;
 use Edge::ClientAPI::Object::VS;
+use Edge::ClientAPI::Object::FP;
 use Edge::ClientAPI::E;
 
 use base Exporter::;
 our $VERSION = $Edge::ClientAPI::VERSION;
 our @EXPORT  = qw(create_fp_custom_forward
                   remove_fp_custom_forward
+                  get_fps
                   apply_fp_by_name
-                  unapply_fp_by_name);
+                  unapply_fp_by_name
+                  remove_fp_by_id);
 
 sub Edge::ClientAPI::Request::alb_api::error {
     my ($msg, $fatal) = @_;
@@ -73,6 +76,25 @@ sub __fo {
     return $fo;
 }
 
+sub _get_fps_from_json(\%) {
+    my $json = shift;
+
+    return undef unless ref $json->{dataset} eq 'HASH';
+    return undef unless ref $json->{dataset}{row} eq 'ARRAY' ||
+                        $json->{dataset}{row} eq '';
+
+    my $row = $json->{dataset}{row};
+    unless (ref $row eq 'ARRAY') {
+        return []; # No FPs in valid response from the ADC.
+    }
+
+    for my $fp (@$row) {
+        Edge::ClientAPI::Object::FP->bless($fp);
+    }
+
+    return $row;
+}
+
 # ----------------------------------------------------------------------
 # Public functions for API
 # ----------------------------------------------------------------------
@@ -82,6 +104,28 @@ sub create_fp_custom_forward {
 
 sub remove_fp_custom_forward {
     return __fo(@_, '__remove_fp_custom_forward');
+}
+
+sub get_fps {
+    my $cb      = _cb_wrap pop;
+    my $creds   = shift;
+    my %arg     = @_;
+    my $request = { Operation   => 11,
+                    Method      => 'GET',
+                    InputType   => 'form',
+                    OutputType  => 'json',
+                    Host        => $creds->host,
+                    Port        => $creds->port,
+                    Cookie      => { GUID  => $creds->guid   },
+                    Parameters  => +{} };
+
+    $arg{on_success} = sub {
+        my ($json, $hdr) = @_;
+        $_[0] = _get_fps_from_json %$json;
+        ()
+    };
+
+    return _request($request, %arg, $cb);
 }
 
 sub apply_fp_by_name {
@@ -129,7 +173,6 @@ sub apply_fp_by_name {
                 AE::log warn => "ALB API request to apply FPs raised a " .
                                 "warning in apply_by_id(): " .
                                 "'%s'", $json->{StatusText};
-                # Success.
             }
             else {
                 $hdr->{Success} = 0;
@@ -137,6 +180,13 @@ sub apply_fp_by_name {
                                   "apply_fp_by_id(): '%s'", $json->{StatusText};
             }
         }
+
+        if ($hdr->{Success}) {
+            $_[0] = _get_fps_from_json %$json;
+        } else {
+            $_[0] = undef;
+        }
+
         ()
     };
 
@@ -188,7 +238,6 @@ sub unapply_fp_by_name {
                 AE::log warn => "ALB API request to unapply FPs raised a " .
                                 "warning in unapply_by_id(): " .
                                 "'%s'", $json->{StatusText};
-                # Success.
             }
             else {
                 $hdr->{Success} = 0;
@@ -197,6 +246,56 @@ sub unapply_fp_by_name {
                                   $json->{StatusText};
             }
         }
+
+        if ($hdr->{Success}) {
+            $_[0] = _get_fps_from_json %$json;
+        } else {
+            $_[0] = undef;
+        }
+
+        ()
+    };
+
+    return _request($request, %arg, $cb);
+}
+
+sub remove_fp_by_id {
+    my $cb      = _cb_wrap pop;
+    my $creds   = shift;
+    my $id      = shift;
+    my %arg     = @_;
+    my $request = { Operation   => 11,
+                    Method      => 'POST',
+                    QueryString => 'iAction=3&iType=1',
+                    InputType   => 'json',
+                    OutputType  => 'json',
+                    Host        => $creds->host,
+                    Port        => $creds->port,
+                    Cookie      => { GUID => $creds->guid },
+                    Parameters  => { fId  => "" . $id } };
+
+    unless (!ref $id && length $id) {
+        return $cb->(undef, { %$request, Code   => API_REQ_INPUT_INVALID,
+                        Detail => "Invalid flightPATH ID for removal" });
+    }
+
+    $arg{on_success} = sub {
+        my ($json, $hdr) = @_;
+
+        if (defined $json->{StatusImage} &&
+            $json->{StatusText} ne 'Your changes have been applied') {
+
+            $hdr->{Success} = 0;
+            $hdr->{Detail}  = "ALB API request to remove a FP $id failed in " .
+                              "remove_fp_by_id(): '$json->{StatusText}'";
+        }
+
+        if ($hdr->{Success}) {
+            $_[0] = _get_fps_from_json %$json;
+        } else {
+            $_[0] = undef;
+        }
+
         ()
     };
 

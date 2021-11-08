@@ -4,6 +4,9 @@ use Try::Tiny;
 use YAML::Tiny;
 use Data::Dumper;
 use Safe::Isa;
+use Crypt::OpenSSL::PKCS12;
+use Edge::ClientAPI::Util::Cert;
+use Digest::SHA;
 use Edge::ClientAPI::Feed::FPS;
 use Edge::ClientAPI::Feed::VSS_FPS;
 use Edge::ClientAPI::E
@@ -27,8 +30,16 @@ sub data  { $_[0]{yaml}[0] }
 sub data_services  { $_[0]->data->{services}  } # Arrayref (can be empty).
 sub data_upstreams { $_[0]->data->{upstreams} } # Arrayref (can be empty).
 
-sub data_balancer_ip { $_[0]->data->{balancer_ip} } # Always defined.
-sub data_external_ip { $_[0]->data->{external_ip} } # Always defined.
+sub data_balancer_ip   { $_[0]->data->{balancer_ip}   } # Always defined.
+sub data_balancer_user { $_[0]->data->{balancer_user} } # Always defined.
+sub data_balancer_pass { $_[0]->data->{balancer_pass} } # Always defined.
+sub data_external_ip   { $_[0]->data->{external_ip}   } # Always defined.
+
+sub HOOK_CERT_FILEPATHS($$) { # $cert_path, $key_path
+    # Redefine this subroutine in your tests to re-assign paths by using
+    # $_[0] and $_[1].
+    ()
+}
 
 sub build_required_vss_fps {
     my ($self) = @_;
@@ -41,14 +52,13 @@ sub build_required_vss_fps {
 
     my $vss_fps = Edge::ClientAPI::Feed::VSS_FPS->new;
     for (@$vss_array) {
-        my ($vs_ip, $vs_port) = @$_;
+        my ($vs_ip, $vs_port, $tls) = @$_;
         my $fps = Edge::ClientAPI::Feed::FPS->new($self, $vs_ip, $vs_port);
-        $vss_fps->add($vs_ip, $vs_port, $fps);
+        $vss_fps->add($vs_ip, $vs_port, $fps, $tls);
     }
 
     return $vss_fps;
 }
-
 
 sub get_upstream_by_name {
     my ($self, $name) = @_;
@@ -127,7 +137,6 @@ sub make_adc_commands {
 #    return undef;
 #}
 
-
 sub _get_unique_vss_to_run {
     my ($self) = @_;
 
@@ -138,21 +147,71 @@ sub _get_unique_vss_to_run {
     my %uniq;
     for my $service (@$services) {
         my $listeners = $service->{listeners};
-        next unless $listeners && @$listeners;
-        for my $lst (@$listeners) {
-            my $port = $lst->{port};
-            next unless $port > 0 && $port <= 0xFFFF;
-            my $ip = $lst->{address};
-            $ip = $external_ip unless length $ip;
-            $uniq{"$ip:$port"} = [ $ip, $port ];
+
+        if ($listeners && @$listeners) {
+            for my $lst (@$listeners) {
+                my $port = $lst->{port};
+                next unless $port > 0 && $port <= 0xFFFF;
+                my $ip = $lst->{address};
+                $ip = $external_ip unless length $ip;
+                $uniq{"$ip:$port"} = [ $ip, $port, undef ];
+            }
+        }
+
+        if ($service->{ssl} && $service->{ssl}{listeners}) {
+            my $ssl_listeners = $service->{ssl}{listeners};
+            next unless @$ssl_listeners;
+
+            # Collect listeners.
+            my %tls;
+            for my $lst (@$ssl_listeners) {
+                my $port = $lst->{port};
+                next unless $port > 0 && $port <= 0xFFFF;
+                my $ip = $lst->{address};
+                $ip = $external_ip unless length $ip;
+                $uniq{"$ip:$port"} = [ $ip, $port, \%tls ];
+            }
+
+            # Get certificate. It is common for all SSL listeners from above.
+            my $pkcs12      = Crypt::OpenSSL::PKCS12->new;
+            my $pkcs12_name = "Friendly name";
+            my $pkcs12_pwd  = "tmppass"; # TODO: random
+            my $cert_path   = $service->{ssl}{ssl_certificate};
+            my $key_path    = $service->{ssl}{ssl_certificate_key};
+            HOOK_CERT_FILEPATHS($cert_path, $key_path);
+            my $pkcs12_path = $cert_path . ".p12";
+
+            $pkcs12->create($cert_path,  $key_path,
+                            $pkcs12_pwd, $pkcs12_path, $pkcs12_name);
+
+            my $fh;
+            if (open $fh, '<', $pkcs12_path) {
+                binmode $fh;
+                my $buf = do { local $/ = undef; <$fh> };
+                close $fh;
+                unlink $pkcs12_path;
+
+                my $sha1 = Digest::SHA->new(1);
+                $sha1->addfile($cert_path);
+                $sha1->addfile($key_path);
+
+                $tls{sum} = $sha1->hexdigest;
+                $tls{pwd} = $pkcs12_pwd;
+                $tls{crt} = Edge::ClientAPI::Util::Cert->new(
+                                    pkcs12_string   => $buf,
+                                    pkcs12_password => 'tmppass');
+                $tls{name} = 'Kubernetes_IC_SHA1_cert_' . $tls{sum};
+            } else {
+                unlink $pkcs12_path;
+                die "PKCS12 file is not created from SSL cert and key: $!";
+            }
         }
     }
 
     return undef unless %uniq;
 
     for (sort keys %uniq) {
-        # TODO: Add SSL details when port is 443 (or SSL is TRUE).
-        push @vss_array, $uniq{$_}; # [ IP, PORT ]
+        push @vss_array, $uniq{$_}; # [ IP, PORT [, TLS ] ]
     }
 
     return \@vss_array;
@@ -245,6 +304,12 @@ sub __read_yaml(\@) {
     unless (length $yaml->[0]{balancer_ip}) {
         $yaml->[0]{balancer_ip} = "127.0.0.1"; # Dummy value.
     }
+    unless (length $yaml->[0]{balancer_user}) {
+        $yaml->[0]{balancer_user} = "admin"; # Initial value.
+    }
+    unless (length $yaml->[0]{balancer_pass}) {
+        $yaml->[0]{balancer_pass} = "jetnexus"; # Initial value.
+    }
     unless (length $yaml->[0]{external_ip}) {
         $yaml->[0]{external_ip} = "127.0.0.2"; # Dummy value.
     }
@@ -265,106 +330,3 @@ sub __read_file($) {
 }
 
 1;
-
-__DATA__
-    my $subnet;
-
-    unless (@rss && @flight_paths) {
-        die sprintf "No RSs addresses and/or flightPATHs for VS %s:%s",
-                    $ip, $port;
-    }
-
-    if (1) {
-        AE::log info => "VS %s:%s must have %u RS(s)", $ip, $port, scalar @rss;
-
-        my @rss_ref;
-        for my $rs (@rss) {
-            push @rss_ref, { addr => $rs->{ip}, port => $rs->{port} };
-        }
-
-        my ($vs, $hdr) = $self->cli->init_rs_multi_by_specs(
-            \@rss_ref, $ip, $subnet, $port);
-#        die STOPPED unless $self;
-
-        unless ($hdr->{Success}) {
-            die e40_format(EDGE_ERROR, $hdr->{Detail});
-        }
-
-        AE::log info => "Created all RSs for VS %s/%s:%s", $ip, $subnet, $port;
-        AE::log info => "Determine if there's some RS for deletion...";
-
-        my @del;
-        $vs->enum_rs(sub {
-            my ($hash) = @_;
-            my ($_ip, $_port) = ($hash->{CSIPAddr}, $hash->{CSPort});
-            my $found;
-            for my $rs (@rss) {
-                if ($rs->{ip} eq $_ip && $rs->{port} == $_port) {
-                    $found = 1;
-                    last;
-                }
-            }
-            unless ($found) {
-                push @del, [ $_ip, $_port ];
-            }
-        });
-
-        if (@del) {
-            AE::log info => "Need to delete %u RS(s)", scalar @del;
-            for (@del) {
-                my ($_ip, $_port) = @$_;
-                my (undef, $hdr) = $self->cli->remove_rs_by_specs({ addr => $_ip, port => $_port }, $ip, $subnet, $port);
-#                die STOPPED unless $self;
-
-                unless ($hdr->{Success}) {
-                    die e40_format(EDGE_ERROR, $hdr->{Detail});
-                } else {
-                    if (length $_ip) {
-                        AE::log info => "Removed not used RS %s:%s from VS %s/%s:%s",
-                                        $_ip, $_port, $ip, $subnet, $port;
-                    }
-                    else {
-                        AE::log info => "Removed empty RS from VS %s/%s:%s",
-                                        $ip, $subnet, $port;
-                    }
-                }
-            }
-        }
-    }
-
-    if (1) {
-        AE::log trace => "FlightPATHs structure: %s", Dumper+\@flight_paths;
-
-        for my $fp (@flight_paths) {
-            my $rs_ip;
-            my $rs_port;
-            for (@{$fp->{rss}}) {
-                $rs_ip   = $_->{ip};
-                $rs_port = $_->{port};
-            }
-
-            my $fp_name = "Kubernetes Ingress " . AE::time;
-            my (undef, $hdr) = $self->cli->create_fp_custom_forward(
-                    $fp->{hostname},
-                    undef, # Arrayref with VSs that have flightPATH by the name.
-                    $ip, $port,
-                    $fp_name,
-                    'EdgeCertMgr',
-                    $rs_ip,
-                    $rs_port,
-                    $fp->{path}
-            );
-#            die STOPPED unless $self;
-
-            unless ($hdr->{Success}) {
-                die e40_format(EDGE_ERROR, $hdr->{Detail});
-            }
-
-            AE::log info => "Created and enabled flightPATH '%s' for %s/%s:%s",
-                            $fp_name, $ip, $subnet, $port;
-        }
-    }
-
-    AE::log info => "VS %s/%s:%s is completely configured",
-                    $ip, $subnet, $port;
-    ()

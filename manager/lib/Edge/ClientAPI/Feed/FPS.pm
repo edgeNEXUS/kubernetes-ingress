@@ -178,4 +178,16 @@ sub enum_fps_hashes {
     ()
 }
 
+sub get_fps_names {
+    my $self = shift;
+    my %names;
+    $self->enum_fps_hashes(sub {
+        my ($fp, $sha1) = @_;
+        my $fp_name = "Kubernetes IC sha1 $sha1";
+        $names{$fp_name} = 1;
+    });
+
+    return %names ? \%names : undef;
+}
+
 1;

@@ -1,7 +1,7 @@
 package Edge::ClientAPI;
 use strict;
 use warnings;
-BEGIN { our $VERSION = '1.01' }
+BEGIN { our $VERSION = '1.02' }
 use Carp;
 use Data::Dumper;
 use Edge::ClientAPI::Data;

@@ -88,6 +88,23 @@ sub get_fp_names_by_regex {
     return %names ? [ sort keys %names ] : undef;
 }
 
+sub get_fp_names_all_by_regex {
+    my ($self, $regex) = @_;
+    return undef unless ref $regex eq 'Regexp';
+    my $fp = $self->fp;
+    return undef unless $fp;
+
+    my %names;
+    for (@{$fp->{flightPathId}}) {
+        if ($_->{Name} =~ $regex) {
+            # Set flag if flightPATH is applied to the VS.
+            $names{$_->{Name}} = $_->{flightPathSelected} ? 1 : 0;
+        }
+    }
+
+    return %names ? \%names : undef;
+}
+
 sub is_enabled {
     my ($self) = @_;
     return $self->{localPortEnabledChecked} eq 'true' ? 1 : 0;
@@ -160,5 +177,7 @@ sub service_name { $_[0]{serviceName} }
 sub interface_id { $_[0]{InterfaceID} }
 sub channel_id   { $_[0]{ChannelID}   }
 sub channel_key  { $_[0]{ChannelKey}  }
+# TODO: What if multiple certs on VS?
+sub ssl_certificate_name { $_[0]{sslCertificate} }
 
 1;

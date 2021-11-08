@@ -75,8 +75,8 @@ sub main() {
         #"$FindBin::Bin/sample/",
         #"$FindBin::Bin/sample2/",
         #"$FindBin::Bin/sample3/",
-        #"$FindBin::Bin/sample4-ssl/"
-        "$FindBin::Bin/sample5-ssl/"
+        "$FindBin::Bin/sample4-ssl/"
+        #"$FindBin::Bin/sample5-ssl/"
     );
 
     for my $dir (@yaml_dirs) {

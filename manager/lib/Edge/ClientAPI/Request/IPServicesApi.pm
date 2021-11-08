@@ -801,6 +801,7 @@ sub update_rs {
         _try_to_populate_error $json, $hdr, 'update_rs', 'update a RS';
 
         my $vips = _get_vips_from_json %$json; # Can be undefined.
+
         if (defined $vips) {
             my $updated = _find_vs_by_ids(@$vips, $vs->{editedInterface},
                                                   $vs->{editedChannel});
@@ -830,7 +831,7 @@ sub init_rs_multi {
     my $cb    = _cb_wrap pop;
     my $creds = shift;
     my $vs    = shift; # Virtual Service hashref (not modified).
-    my $rss   = shift;
+    my $rss   = shift; # Arrayref.
     my %arg   = @_;
 
     unless ($vs->$_isa('Edge::ClientAPI::Object::VS') || ref $vs eq 'HASH') {
@@ -851,7 +852,7 @@ sub init_rs_multi {
                 #length $_->{ServerId}
         ) {
             return $cb->(undef, { Code => API_REQ_INPUT_INVALID,
-                                Detail => "Invalid Real Server element." });
+                                  Detail => "Invalid Real Server element." });
         }
 
         # Stringify.
@@ -867,7 +868,8 @@ sub init_rs_multi {
     # creating a new VS.
     my $cId    = int($arg{cId} || 0);
 
-    AE::log info => "Start initializing multiple RS...";
+    AE::log info  => "Start initializing multiple RS...";
+    AE::log trace => "RS are %s", Dumper+$rss;
 
     my @state;
     push @state, scalar AnyEvent::Tools::async_foreach
@@ -902,7 +904,7 @@ sub init_rs_multi {
             unless (defined $empty_cs) {
                 @state = ();
                 return $cb->(undef, { Code   => API_REQ_VS_CSERVER_ID,
-                                      Detail => "CServerId not found" });
+                                      Detail => "Empty CServerId not found" });
             }
 
             # Fill in actual data for a CS.
@@ -994,6 +996,14 @@ sub init_rs_multi_by_specs {
                             Detail => "Not all mandatory arguments provided" });
     }
 
+    my $vs = $arg{-vs}; # Can be provided optionally to speed up process.
+    if (defined $arg{-vs}) {
+        unless ($vs->$_isa('Edge::ClientAPI::Object::VS')) {
+            return $cb->(undef, { Code   => API_REQ_INPUT_INVALID,
+                                  Detail => "Invalid VS object in arguments" });
+        }
+    }
+
     # Send multiple requests one after one. TODO: Use promises.
     my $guard  = 1;
     my $new_cb = _cb_nowrap sub {
@@ -1009,9 +1019,16 @@ sub init_rs_multi_by_specs {
         ()
     };
 
-    # First, find virtual service and get its interface and channel ID
-    $guard = get_vs($creds, undef, $ipAddr, $subnetMask, $port,
-                    undef, undef, undef, undef, %arg, $new_cb);
+    if (defined $vs) {
+        AE::log info => "Reuse provided VS...";
+        $new_cb->($vs, { Success => 1 });
+        # Guard is prepared.
+    }
+    else {
+        # First, find virtual service and get its interface and channel ID
+        $guard = get_vs($creds, undef, $ipAddr, $subnetMask, $port,
+                        undef, undef, undef, undef, %arg, $new_cb);
+    }
 
     return defined wantarray && AnyEvent::Util::guard { undef $guard };
 }
@@ -1019,7 +1036,7 @@ sub init_rs_multi_by_specs {
 sub upsert_rs {
     my $cb    = _cb_wrap pop;
     my $creds = shift;
-    my $rs    = shift;
+    my $rs    = shift; # Hashref.
     my @specs = splice @_, 0, 3; # Only: IP, subnet, port (duplicate trace).
     my %arg   = @_;
 
@@ -1037,6 +1054,14 @@ sub upsert_rs {
     unless (length $ipAddr && length $subnetMask && length $port) {
         return $cb->(undef, { Code   => API_REQ_INPUT_INVALID,
                             Detail => "Not all mandatory arguments provided" });
+    }
+
+    my $vs = $arg{-vs}; # Can be provided optionally to speed up process.
+    if (defined $arg{-vs}) {
+        unless ($vs->$_isa('Edge::ClientAPI::Object::VS')) {
+            return $cb->(undef, { Code   => API_REQ_INPUT_INVALID,
+                                  Detail => "Invalid VS object in arguments" });
+        }
     }
 
     my $guard  = 1;
@@ -1120,9 +1145,16 @@ sub upsert_rs {
         ()
     };
 
-    # First, find virtual service and get its interface and channel ID
-    $guard = get_vs($creds, undef, $ipAddr, $subnetMask, $port,
-                    undef, undef, undef, undef, %arg, $new_cb);
+    if (defined $vs) {
+        AE::log info => "Reuse provided VS...";
+        $new_cb->($vs, { Success => 1 });
+        # Guard is prepared.
+    }
+    else {
+        # First, find virtual service and get its interface and channel ID
+        $guard = get_vs($creds, undef, $ipAddr, $subnetMask, $port,
+                        undef, undef, undef, undef, %arg, $new_cb);
+    }
 
     return defined wantarray && AnyEvent::Util::guard { undef $guard };
 }

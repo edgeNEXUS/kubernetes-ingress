@@ -10,7 +10,8 @@ use Edge::ClientAPI::Feed::Config;
 use Edge::ClientAPI::E
 ;
 
-our $VS_NAME = 'Kubernetes IC external IP';
+our $VS_NAME                  = 'Kubernetes IC external IP';
+our $QR_FP_NAME_KUBERNETES_IC = qr!Kubernetes\s+IC\s+!;
 
 #sub __has_vs_in_array(\@$);
 #sub __upsert_rss_by_ip_port(\@$$);
@@ -58,7 +59,7 @@ sub process_until_done {
                 AE::log crit => "%s", $_;
                 AE::log info => "Repeating feeding due to error...";
                 $ok = 0;
-                Coro::AnyEvent::sleep(1);
+                Coro::AnyEvent::sleep(5);
             }
         };
     }
@@ -67,12 +68,17 @@ sub process_until_done {
 
 sub process {
     my ($self, $success_cb) = @_;
+    die "No success callback" unless ref $success_cb eq 'CODE';
+
     Scalar::Util::weaken($self);
 
     $self->update_config;
     AE::log info => "YAML parsed: %s", Dumper+$self->config;
 
     $self->creds->host($self->config->data_balancer_ip);
+    $self->creds->user($self->config->data_balancer_user);
+    $self->creds->pass($self->config->data_balancer_pass);
+
     $self->{cli} = Edge::ClientAPI::coro($self->creds);
 
     my ($vss, $hdr) = $self->cli->get_all_vs;
@@ -82,15 +88,23 @@ sub process {
     }
 
     my $vss_fps = $self->config->build_required_vss_fps;
-    $vss = $self->delete_unused_vss($vss, $vss_fps);
+
+    # Step 1: Delete unused VSs.
+    $vss = $self->delete_unused_vss($vss, $vss_fps); # VSS FPS can be undefined.
 
     if ($vss_fps) {
         AE::log info => "VSs FPs: %s", Dumper+$vss_fps;
+        # Step 2: Configure VSs that exist on the ADC.
         $self->configure_used_vss($vss, $vss_fps);
-        $self->add_new_vss($vss, $vss_fps);
+        # Step 3: Add new VSs to the ADC and configure them.
+        $self->add_new_vss_and_configure($vss, $vss_fps);
     } else {
-        AE::log info => "No Kubernetes VS/RS to be on the ADC";
+        AE::log info => "No Kubernetes VS/RS to be set on the ADC";
     }
+
+    # TODO: move below.
+    $self->remove_not_used_fps($vss_fps);
+    $self->remove_not_used_ssl_certs($vss_fps);
 
     my $config_version = $self->config->data->{config}{version};
     unless (length $self->config->data->{config}{version}) {
@@ -99,23 +113,32 @@ sub process {
         $config_version = 0;
     }
 
-    if (ref $success_cb eq 'CODE') {
-        AE::log info => "Provide applied config version: %s", $config_version;
-        $success_cb->($config_version);
-    } else {
-        AE::log warn => "No callback to return applied config version";
-    }
+    AE::log info => "Provide applied config version: %s", $config_version;
+    $success_cb->($config_version);
 
     AE::log info => "\n" .
                     "-------------------------------------------------------\n".
                     "Congrats! Feeding done. Config version in use is %s.\n" .
                     "-------------------------------------------------------\n",
                     $config_version;
+
+    # Step 4: Optionally, delete outdated Kubernetes FPs and SSL certs.
+    # In the above code, we remove FPs as soon as possible. Sometimes, due to
+    # errors, FP may be kept on the ADC.
+
+    # TODO: enable after tests.
+    #$self->remove_not_used_fps($vss_fps);
+    #$self->remove_not_used_ssl_certs($vss_fps);
+
     ()
 }
 
 sub delete_unused_vss {
     my ($self, $vss, $vss_fps) = @_;
+    if (defined $vss_fps) {
+        die "Invalid VSS FPS"
+            unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
+    }
     Scalar::Util::weaken($self);
 
     AE::log info => "Delete unused VSs...";
@@ -188,7 +211,8 @@ sub delete_unused_vss {
 
 sub configure_used_vss {
     my ($self, $vss_left, $vss_fps) = @_;
-    die "Undefined VSS_FPS" unless $vss_fps;
+    die "Invalid VSS FPS"
+        unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
     Scalar::Util::weaken($self);
 
     AE::log info => "Determine and configure VSs that exist...";
@@ -202,9 +226,10 @@ sub configure_used_vss {
     for my $el (@$vss_left) {
         for my $vs (@$el) {
             my $fps = $vss_fps->get_fps_by_vs($vs->ip, $vs->port);
+            my $tls = $vss_fps->get_tls_by_vs($vs->ip, $vs->port);
             next unless $fps;
             # TODO: Mark if we need to change service name to $VS_NAME
-            push @used, [ $vs, $fps ];
+            push @used, [ $vs, $fps, $tls ];
         }
     }
 
@@ -250,15 +275,14 @@ sub configure_used_vss {
 #    }
 
     for my $pair (@used) {
-        my ($vs, $fps) = @$pair;
+        my ($vs, $fps, $tls) = @$pair;
         AE::log info => "VS %s:%s/%s already created, configure only RSs...",
                         $vs->ip, $vs->subnet, $vs->port;
-        $self->configure_vs_rss($vs, $fps);
+        $self->configure_vs_rss($vs, $fps, $tls);
     }
 
     ()
 }
-
 
 #sub __has_vs_in_array(\@$) {
 #    my ($array, $vs) = @_;
@@ -276,9 +300,10 @@ sub configure_used_vss {
 #    return 0;
 #}
 
-sub add_new_vss {
+sub add_new_vss_and_configure {
     my ($self, $vss_left, $vss_fps) = @_;
-    die "Undefined VSS_FPS" unless $vss_fps;
+    die "Invalid VSS FPS"
+        unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
     Scalar::Util::weaken($self);
 
     AE::log info => "Determine and configure VSs that are not created...";
@@ -288,6 +313,7 @@ sub add_new_vss {
         my ($vs_fps) = @_;
         my $vs2 = $vs_fps->{vs};
         my $fps = $vs_fps->{fps};
+        my $tls = $vs_fps->{tls};
         my $found = 0;
 
         for my $el (@$vss_left) {
@@ -300,7 +326,7 @@ sub add_new_vss {
         }
 
         unless ($found) {
-            push @add, [ $vs2->{ip}, $vs2->{port}, $fps ];
+            push @add, [ $vs2->{ip}, $vs2->{port}, $fps, $tls ];
         }
     });
 
@@ -310,7 +336,7 @@ sub add_new_vss {
     }
 
     for my $pair (@add) {
-        my ($ip, $port, $fps) = @$pair;
+        my ($ip, $port, $fps, $tls) = @$pair;
         my $subnet = "255.255.255.255"; # TODO: Which one?
 
         AE::log info => "Create VS %s/%s:%s", $ip, $subnet, $port;
@@ -329,27 +355,78 @@ sub add_new_vss {
         AE::log info => "Created VS %s/%s:%s; configure RSs...",
                         $vs->ip, $vs->subnet, $vs->port;
 
-        $self->configure_vs_rss($vs, $fps);
+        $self->configure_vs_rss($vs, $fps, $tls);
     }
     ()
 }
 
 sub configure_vs_rss {
-    my ($self, $vs, $fps) = @_;
+    my ($self, $vs, $fps, $tls) = @_;
     die "Invalid VS object: $vs"
         unless $vs->$_isa('Edge::ClientAPI::Object::VS');
     die "Invalid FPs object: $fps"
         unless $fps->$_isa('Edge::ClientAPI::Feed::FPS');
     Scalar::Util::weaken($self);
 
-    AE::log info => "Configure flightPATH and RS of VS %s/%s:%s...",
+    AE::log info => "Configure SSL, flightPATH, RS of VS %s/%s:%s...",
                     $vs->ip, $vs->subnet, $vs->port;
 
+    if (ref $tls eq 'HASH') {
+        AE::log info => "Ensure that SSL cert with ID '%s' is applied to " .
+                        "VS %s/%s:%s...",
+                        $tls->{name}, $vs->ip, $vs->subnet, $vs->port;
+
+        if ($vs->ssl_certificate_name eq $tls->{name}) {
+            AE::log info => "SSL cert with ID '%s' is already applied on VS",
+                            $tls->{name};
+        }
+        else {
+            # Add PKCS12 with name associated with cert & key permanently.
+            # If it exists with the name, copy will be added (to be removed
+            # on cleaning stage later -- just save time now).
+            my (undef, $hdr) = $self->cli->ADV_import_ssl_cert(
+                $tls->{name},
+                $tls->{crt}->pkcs12->as_string,
+                $tls->{pwd}
+            );
+
+            die STOPPED unless $self;
+            die e40_format(EDGE_ERROR, $hdr->{Detail}) unless $hdr->{Success};
+
+            # Apply certificate to VS.
+            my %new;
+            $new{acceleration}         = $vs->{acceleration};
+            $new{cachingRule}          = $vs->{cachingRule};
+            $new{editedInterface}      = $vs->{InterfaceID};
+            $new{editedChannel}        = $vs->{ChannelID};
+            $new{loadBalancingPolicy}  = $vs->{loadBalancingPolicy};
+            $new{serverMonitoring}     = $vs->{serverMonitoring};
+            $new{sslCertificate}       = $vs->{sslCertificate};
+            $new{sslCertificate}       = $tls->{name};
+            $new{sslClientCertificate} = $vs->{sslClientCertificate};
+
+            # TODO: multiple SSL certs on one VS.
+            my ($vs_changed, $hdr) = $self->cli->change_basic_settings(\%new);
+            die STOPPED unless $self;
+            die e40_format(EDGE_ERROR, $hdr->{Detail}) unless $hdr->{Success};
+
+            $vs = $vs_changed;
+        }
+    }
+    else {
+        AE::log info => "VS %s/%s:%s doesn't use SSL certificates",
+                        $vs->ip, $vs->subnet, $vs->port;
+    }
+
     my %fp_sha1;
+
+    # Enumerate flightPATH to be created.
     $fps->enum_fps_hashes(sub {
         my ($fp, $sha1) = @_;
         my $fp_name = "Kubernetes IC sha1 $sha1";
         $fp_sha1{$fp_name} = 1;
+
+        AE::log info => "FP with the name '%s' is to be created", $fp_name;
 
         my $id  = $vs->get_fp_id_by_name($fp_name);
         my $idx = $vs->get_fp_idx_by_name($fp_name);
@@ -391,38 +468,43 @@ sub configure_vs_rss {
     });
 
     if (1) {
-        # TODO: enable only this one:
-        #my $names = $vs->get_fp_names_by_regex(qr!Kubernetes\s+IC\s+!);
-        my $names = $vs->get_fp_names_by_regex(qr!Kubernetes\s+!);
+        AE::log info => "Unapply not used flightPATH from VS %s/%s:%s...",
+                        $vs->ip, $vs->subnet, $vs->port;
 
-        my $first = 1;
-        for my $name (@$names) {
-            next if exists $fp_sha1{$name};
-            if ($first) {
-                AE::log info => "Unapply not used flightPATHs from VS %s/%s:%s...",
-                                $vs->ip, $vs->subnet, $vs->port;
-                $first = 0;
+        my $names = $vs->get_fp_names_all_by_regex($QR_FP_NAME_KUBERNETES_IC);
+
+        for my $name (sort keys %$names) {
+            if (exists $fp_sha1{$name}) {
+                AE::log info => "Kubernetes flightPATH '%s' is used", $name;
+                next;
             }
+            AE::log info => "Kubernetes flightPATH '%s' is not used", $name;
 
-            AE::log info => "Unapply flightPATH '%s' on VS %s/%s:%s...",
-                            $name, $vs->ip, $vs->subnet, $vs->port;
+            my $applied = $names->{$name};
 
-            my (undef, $hdr) = $self->cli->unapply_fp_by_name($name, $vs);
-            die STOPPED unless $self;
+            if ($applied) {
+                AE::log info => "Unapply flightPATH '%s' from VS %s/%s:%s...",
+                                $name, $vs->ip, $vs->subnet, $vs->port;
 
-            unless ($hdr->{Success}) {
-                die e40_format(EDGE_ERROR, $hdr->{Detail});
+                my (undef, $hdr) = $self->cli->unapply_fp_by_name($name, $vs);
+                die STOPPED unless $self;
+
+                unless ($hdr->{Success}) {
+                    die e40_format(EDGE_ERROR, $hdr->{Detail});
+                }
+
+                AE::log info => "flightPATH '%s' has been unapplied", $name;
             }
-
-            AE::log info => "flightPATH '%s' is unapplied", $name;
         }
     }
 
     my $rss = $fps->get_unique_rss;
-    AE::log info => "Configure RSs on VS %s/%s:%s...",
-                    $vs->ip, $vs->subnet, $vs->port;
-    AE::log info => "VS %s/%s:%s must have %u RS(s)",
-                    $vs->ip, $vs->subnet, $vs->port;
+    AE::log info  => "Configure RSs on VS %s/%s:%s...",
+                     $vs->ip, $vs->subnet, $vs->port;
+    AE::log info  => "VS %s/%s:%s must have %u RS(s)",
+                     $vs->ip, $vs->subnet, $vs->port, scalar @$rss;
+    AE::log trace => "VS %s/%s:%s must have the following RS(s): %s",
+                     $vs->ip, $vs->subnet, $vs->port, Dumper+$rss;
 
     my @add_rss;
     for my $rs (@$rss) {
@@ -430,7 +512,8 @@ sub configure_vs_rss {
 
         if ($vs->has_rs($rs->{ip}, $rs->{port})) {
             AE::log info => "RS %s:%s exists", $rs->{ip}, $rs->{port};
-            #next;
+            # TODO: Do we need to use RS upsert?
+            next;
         }
 
         push @add_rss, { ip => $rs->{ip}, port => $rs->{port} };
@@ -489,24 +572,179 @@ sub configure_vs_rss {
     if (@add_rss) {
         my @rss_ref;
         for my $rs (@add_rss) {
-            push @rss_ref, { addr => $rs->{ip}, port => $rs->{port} };
-        }
+            #push @rss_ref, { addr => $rs->{ip}, port => $rs->{port} };
+        #}
 
         AE::log info => "Add missed RSs: %s", Dumper+\@rss_ref;
-        my ($vs, $hdr) = $self->cli->init_rs_multi_by_specs(
-            \@rss_ref, $vs->ip, $vs->subnet, $vs->port);
+
+        #my ($vs, $hdr) = $self->cli->init_rs_multi_by_specs(
+        #    \@rss_ref, $vs->ip, $vs->subnet, $vs->port, -vs => $vs);
+        # TODO: Do we need to use RS upsert?
+        my ($vs, $hdr) = $self->cli->upsert_rs(
+            { addr => $rs->{ip}, port => $rs->{port} }, $vs->ip, $vs->subnet, $vs->port, -vs => $vs);
+        #warn "UPSERT RESULT: self=$self, vs=$vs";
         die STOPPED unless $self;
+
+        #warn "press ENTER: $vs: $hdr->{Detail}\n"; my $in = <STDIN>;
 
         unless ($hdr->{Success}) {
             die e40_format(EDGE_ERROR, $hdr->{Detail});
         }
 
-        AE::log info => "Add all RSs for VS %s/%s:%s",
+        AE::log info => "Added all RSs for VS %s/%s:%s",
                         $vs->ip, $vs->subnet, $vs->port;
+        }
     }
 
     AE::log info => "VS %s/%s:%s is completely configured",
                     $vs->ip, $vs->subnet, $vs->port;
+    ()
+}
+
+# This routine is to be called after all Kubernetes FPs are applied.
+# It's just cleaning. All errors here are not critical.
+sub remove_not_used_fps {
+    my ($self, $vss_fps) = @_;
+    die "Invalid VSS FPS"
+        unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
+
+    my $used_fp_names = $vss_fps->get_all_fps_names; # Can be undefined.
+    AE::log trace => "Used Kubernetes FPs: %s", Dumper+$used_fp_names;
+
+    AE::log info => "Get all FPs on the ADC for cleaning...";
+    my ($fps, $hdr) = $self->cli->get_fps;
+    die STOPPED unless $self;
+    unless ($hdr->{Success}) {
+        AE::log error => "Couldn't get list of all FPs: %s", $hdr->{Detail};
+        return;
+    }
+
+    AE::log info => "Collect FP names for removal...";
+    my %del;
+    for my $fp (@$fps) {
+        my $name = $fp->name;
+        next unless $name =~ $QR_FP_NAME_KUBERNETES_IC;
+        next if exists $used_fp_names->{$name};
+        $del{$name} = $fp->id;
+    }
+
+    unless (%del) {
+        AE::log info => "No flightPATHs for removal";
+        return;
+    }
+
+    AE::log info => "Need to remove %u FP(s)...", scalar keys %del;
+    # If FPs are applied, ADC doesn't remove them and returns error.
+    my $ok = 1;
+    my $id;
+    my @names = sort keys %del;
+    for (my $i = 0; $i < @names; $i++) {
+        my $name = $names[$i];
+
+        unless (defined $id) {
+            # First FP ID can be taken from first FPs lookup response.
+            $id = $del{$name};
+        } else {
+            my $found = 0;
+            for my $fp (@$fps) {
+                if ($fp->name eq $name) {
+                    $id    = $fp->id;
+                    $found = 1;
+                }
+            }
+
+            unless ($found) {
+                AE::log error => "Couldn't get FP ID by name '%s'", $name;
+                $ok = 0;
+                next;
+            }
+        }
+
+        # Got ID of FP for removal.
+        AE::log info => "Remove FP with name '%s' by ID %s...", $name, $id;
+        my ($new_fps, $hdr) = $self->cli->remove_fp_by_id($id);
+        die STOPPED unless $self;
+        unless ($hdr->{Success}) {
+            AE::log error => "Couldn't remove flightPATH: %s; stop cleaning...",
+                             $hdr->{Detail};
+            # TODO: if error is for FP applied, skip it.
+            $ok = 0;
+            last;
+        }
+        AE::log info => "Removed FP by ID %s", $id;
+
+        unless (@$new_fps) {
+            if ($i + 1 == @names) {
+                # It's okay if there are no FPs received.
+                # We removed all not used.
+                last;
+            }
+            else {
+                AE::log info => "No flightPATHs in last response";
+                AE::log warn => "No reasons to delete next flightPATHs by name " .
+                                "while FP IDs are changed after last removal";
+                $ok = 0;
+                last;
+            }
+        }
+
+        # Use new FPs rows to determine actual FP IDs from names.
+        $fps = $new_fps;
+    }
+
+    if ($ok) {
+        AE::log info => "All FPs have been removed successfully";
+    } else {
+        AE::log info => "Not all FPs were removed due to errors";
+    }
+
+    ()
+}
+
+# This routine is to be called after all Kubernetes SSL certs are applied.
+# It's just cleaning. All errors here are not critical.
+sub remove_not_used_ssl_certs {
+    my ($self, $vss_fps) = @_;
+    die "Invalid VSS FPS"
+        unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
+
+    my $used_cert_names = $vss_fps->get_all_cert_names; # Can be undefined.
+    AE::log trace => "Used Kubernetes SSL certs: %s", Dumper+$used_cert_names;
+
+    my ($certs, $hdr) = $self->cli->get_all_certificates;
+
+    die STOPPED unless $self;
+    unless ($hdr->{Success}) {
+        AE::log error => "Couldn't get list of all SSL certs: %s",
+                         $hdr->{Detail};
+        return;
+    }
+
+    my $ok = 1;
+    for my $cert (@$certs) {
+        my $id = $cert->{id};
+        next unless $id =~ /^Kubernetes_IC_SHA1_cert_/;
+        next if exists $used_cert_names->{$id};
+
+        AE::log info => "Remove SSL cert with ID '%s'", $id;
+        my (undef, $hdr) = $self->cli->ADV_remove_ssl_cert($id);
+        die STOPPED unless $self;
+        unless ($hdr->{Success}) {
+            AE::log error => "Couldn't remove SSL cert: %s", $hdr->{Detail};
+            $ok = 0;
+            next;
+        }
+
+        AE::log info => "SSL cert with ID '%s' has been removed", $id;
+        # SSL cert IDs are permanent. No need to fetch SSL cert list again.
+    }
+
+    if ($ok) {
+        AE::log info => "All SSL certs have been removed successfully";
+    } else {
+        AE::log info => "Not all SSL certs were removed due to errors";
+    }
+
     ()
 }
 

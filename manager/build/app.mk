@@ -9,6 +9,7 @@ TARGET_FLAGS += \
     --add "../lib/Edge/ClientAPI/Data.pm Edge/ClientAPI/Data.pm" \
     --add "../lib/Edge/ClientAPI/sync.pm Edge/ClientAPI/sync.pm" \
     --add "../lib/Edge/ClientAPI/Util/Log.pm Edge/ClientAPI/Util/Log.pm" \
+    --add "../lib/Edge/ClientAPI/Util/Cert.pm Edge/ClientAPI/Util/Cert.pm" \
     --add "../lib/Edge/ClientAPI/Request/FlightPATH.pm Edge/ClientAPI/Request/FlightPATH.pm" \
     --add "../lib/Edge/ClientAPI/Request/alb_api.pm Edge/ClientAPI/Request/alb_api.pm" \
     --add "../lib/Edge/ClientAPI/Request/_Base.pm Edge/ClientAPI/Request/_Base.pm" \
@@ -21,6 +22,7 @@ TARGET_FLAGS += \
     --add "../lib/Edge/ClientAPI/Creds.pm Edge/ClientAPI/Creds.pm" \
     --add "../lib/Edge/ClientAPI/E.pm Edge/ClientAPI/E.pm" \
     --add "../lib/Edge/ClientAPI/Object/VS.pm Edge/ClientAPI/Object/VS.pm" \
+    --add "../lib/Edge/ClientAPI/Object/FP.pm Edge/ClientAPI/Object/FP.pm" \
     --add "../lib/Edge/ClientAPI/JSON.pm Edge/ClientAPI/JSON.pm" \
     --add "../lib/Edge/Manager/Config.pm Edge/Manager/Config.pm" \
     --add "../lib/Edge/Manager/App.pm Edge/Manager/App.pm" \

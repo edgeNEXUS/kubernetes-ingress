@@ -54,7 +54,7 @@ TARGET_FLAGS=-MConfig_heavy.pl \
              -MFile::Temp \
              -MFindBin \
              -MYAML::Tiny \
-             -MIO::Socket::SSL \
+             -MIO::Socket::SSL::Utils \
              -MCrypt::OpenSSL::PKCS12 \
              -Mlib
 
