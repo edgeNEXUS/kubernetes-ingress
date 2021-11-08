@@ -1,0 +1,106 @@
+---
+
+config:
+  version: 3
+
+---
+# EdgeNEXUS main configuration
+balancer_ip: 192.168.2.132
+external_ip: 192.168.2.135
+
+---
+# EdgeNEXUS configuration for echo/echo-ingress
+
+upstreams:
+
+  - name: echo-echo-ingress-edgeecho-echo-service-80
+    servers:
+
+      - address: 10.244.77.11
+        port: 80
+
+
+
+services:
+
+  - hostname: "edgeecho"
+    resource_type: "ingress"
+    resource_name: "echo-ingress"
+    resource_namespace: "echo"
+
+    listeners:
+
+
+      - port: 80
+
+
+
+    ssl:
+      listeners:
+        - port: 443
+
+      ssl_certificate: /etc/edgenexus-manager/secrets/echo-echo-secret
+      ssl_certificate_key: /etc/edgenexus-manager/secrets/echo-echo-secret
+
+
+
+    locations:
+
+      - path: /abc
+        service_name: "echo-service"
+        rewrite: ""
+        upstream: "echo-echo-ingress-edgeecho-echo-service-80"
+
+
+
+    real_ip_from:
+
+---
+# EdgeNEXUS configuration for httpbin/httpbin-ingress
+
+upstreams:
+  
+  - name: httpbin-httpbin-ingress-edgehttpbin-httpbin-80
+    servers:
+    
+      - address: 10.244.77.11
+        port: 80
+    
+  
+
+services:
+  
+  - hostname: "edgehttpbin"
+    resource_type: "ingress"
+    resource_name: "httpbin-ingress"
+    resource_namespace: "httpbin"
+
+    listeners:
+    
+    
+      - port: 80
+    
+
+    ssl:
+      listeners:
+        - port: 443
+
+      ssl_certificate: /etc/edgenexus-manager/secrets/echo-echo-secret2
+      ssl_certificate_key: /etc/edgenexus-manager/secrets/echo-echo-secret2
+
+
+    locations:
+    
+      - path: /qwerty
+        service_name: "httpbin"
+        rewrite: ""
+        upstream: "httpbin-httpbin-ingress-edgehttpbin-httpbin-80"
+        
+    
+
+    real_ip_from:
+      
+
+    
+
+    

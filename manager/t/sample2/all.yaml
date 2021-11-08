@@ -1,0 +1,55 @@
+---
+
+config:
+  version: 3
+
+---
+# EdgeNEXUS main configuration
+balancer_ip: 192.168.2.132
+external_ip: 192.168.2.135
+
+---
+# EdgeNEXUS configuration for echo/echo-ingress
+
+upstreams:
+  
+  - name: echo-echo-ingress-edgeecho-echo-service-80
+    servers:
+    
+      - address: 10.244.0.9
+        port: 80
+    
+  
+
+services:
+  
+  - hostname: "edgeecho"
+    resource_type: "ingress"
+    resource_name: "echo-ingress"
+    resource_namespace: "echo"
+
+    listeners:
+    
+    
+      - port: 80
+    
+
+    
+
+    locations:
+    
+      - path: /
+        service_name: "echo-service"
+        rewrite: ""
+        upstream: "echo-echo-ingress-edgeecho-echo-service-80"
+        
+    
+
+    real_ip_from:
+      
+
+    
+
+    
+
+ 

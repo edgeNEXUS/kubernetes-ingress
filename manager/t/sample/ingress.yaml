@@ -1,0 +1,39 @@
+# EdgeNEXUS configuration for default/httpbin-ingress
+
+upstreams:
+  
+  - name: default-httpbin-ingress-edge-httpbin-httpbin-80
+    servers:
+    
+      - address: 10.244.0.194
+        port: 80
+    
+  
+
+services:
+  
+  - hostname: "edge-httpbin"
+    resource_type: "ingress"
+    resource_name: "httpbin-ingress"
+    resource_namespace: "default"
+
+    listeners:
+    
+    
+      - port: 80
+    
+
+    
+    locations:
+    
+      - path: /
+        service_name: "httpbin"
+        rewrite: ""
+        upstream: "default-httpbin-ingress-edge-httpbin-httpbin-80"
+        
+    
+
+    real_ip_from:
+      
+
+    
