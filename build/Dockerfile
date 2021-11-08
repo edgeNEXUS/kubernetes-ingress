@@ -97,6 +97,13 @@ ADD ./manager /staticperl/src/github.com/edgeNEXUS/kubernetes-ingress/edgenexus-
 RUN cp /staticperl/.staticperlrc /staticperl/src/github.com/edgeNEXUS/kubernetes-ingress/edgenexus-manager/manager/build/
 WORKDIR /staticperl/src/github.com/edgeNEXUS/kubernetes-ingress/edgenexus-manager/manager/build
 RUN make
+
+# Create dirs in this container for local test of edgenexus-manager only.
+RUN mkdir -p /var/log/edgenexus-manager \
+             /var/lib/edgenexus-manager \
+             /etc/edgenexus-manager
+
+# Make local test to check edgenexus-manager dependencies and assets.
 RUN /staticperl/src/github.com/edgeNEXUS/kubernetes-ingress/edgenexus-manager/manager/build/bin/edgenexus-manager -t
 
 
