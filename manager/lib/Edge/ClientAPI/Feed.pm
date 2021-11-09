@@ -580,11 +580,17 @@ sub configure_vs_rss {
 # It's just cleaning. All errors here are not critical.
 sub remove_not_used_fps {
     my ($self, $vss_fps) = @_;
-    die "Invalid VSS FPS"
-        unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
+    if (defined $vss_fps) {
+        die "Invalid VSS FPS"
+            unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
+    }
 
-    my $used_fp_names = $vss_fps->get_all_uniq_fps_names; # Can be undefined.
-    AE::log trace => "Used Kubernetes FPs: %s", Dumper+$used_fp_names;
+    my $used_fp_names = $vss_fps
+                      ? $vss_fps->get_all_uniq_fps_names # Can be undefined.
+                      : undef;
+
+    AE::log trace => "Used Kubernetes FPs: %s",
+                     $used_fp_names ? Dumper+$used_fp_names : '<undef>';
 
     AE::log info => "Get all FPs on the ADC for cleaning...";
     my ($fps, $hdr) = $self->cli->get_fps;
@@ -680,11 +686,17 @@ sub remove_not_used_fps {
 # It's just cleaning. All errors here are not critical.
 sub remove_not_used_ssl_certs {
     my ($self, $vss_fps) = @_;
-    die "Invalid VSS FPS"
-        unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
+    if (defined $vss_fps) {
+        die "Invalid VSS FPS"
+            unless $vss_fps->$_isa('Edge::ClientAPI::Feed::VSS_FPS');
+    }
 
-    my $used_cert_names = $vss_fps->get_all_uniq_cert_names; # Can be undefined.
-    AE::log trace => "Used Kubernetes SSL certs: %s", Dumper+$used_cert_names;
+    my $used_cert_names = $vss_fps
+                        ? $vss_fps->get_all_uniq_cert_names # Can be undefined.
+                        : undef;
+
+    AE::log trace => "Used Kubernetes SSL certs: %s",
+                     $used_cert_names ? Dumper+$used_cert_names : '<undef>';
 
     my ($certs, $hdr) = $self->cli->get_all_certificates;
 
