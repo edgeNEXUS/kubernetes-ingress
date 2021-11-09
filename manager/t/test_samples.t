@@ -50,7 +50,8 @@ my $creds = Edge::ClientAPI::Creds->new(user => EdgeTest::var('api_user'),
 
 sub test_yaml($) {
     my $yaml_dir = shift;
-    die "No yaml directory" unless length $yaml_dir;
+    die "No yaml directory in arguments" unless length $yaml_dir;
+    die "Directory $yaml_dir doesn't exist" unless -d $yaml_dir;
 
     my $cv = AE::cv;
 
@@ -87,6 +88,7 @@ sub main() {
         "$FindBin::Bin/sample4-ssl/",  # OK
         "$FindBin::Bin/sample5-ssl/",  # OK
         "$FindBin::Bin/sample3/",      # OK
+        "$FindBin::Bin/sample6-empty/",# OK
     );
 
     for my $dir (@yaml_dirs) {

@@ -1,0 +1,9 @@
+---
+
+config:
+  version: 3
+
+---
+# EdgeNEXUS main configuration
+balancer_ip: 192.168.2.132
+external_ip: 192.168.2.135
