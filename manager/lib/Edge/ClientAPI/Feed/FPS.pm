@@ -7,7 +7,6 @@ use Safe::Isa;
 use Digest::SHA;
 use Edge::ClientAPI::E;
 
-
 sub new {
     my ($class, $config, $vs_ip, $vs_port) = @_;
     my $fps_aref = __get_fps_for_vs($config, $vs_ip, $vs_port);
@@ -49,7 +48,7 @@ sub __get_fps_for_vs {
         for my $lst (@$listeners) {
             next unless $lst->{port};
             my $address = $lst->{address};
-            $address = $external_ip if length $address;
+            $address = $external_ip unless length $address;
             unless ($address eq $ip) {
                 next;
             }
@@ -130,7 +129,8 @@ sub __get_fps_for_vs {
                     $ip, $port;
     }
 
-    return @flight_paths ? \@flight_paths : undef;
+    #return @flight_paths ? \@flight_paths : undef;
+    return \@flight_paths;
 }
 
 sub get_unique_rss {

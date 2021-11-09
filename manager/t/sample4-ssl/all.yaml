@@ -39,8 +39,8 @@ services:
       listeners:
         - port: 443
 
-      ssl_certificate: /etc/edgenexus-manager/secrets/echo-echo-secret
-      ssl_certificate_key: /etc/edgenexus-manager/secrets/echo-echo-secret
+      ssl_certificate: /etc/edgenexus-manager/secrets/echo-echo-secret_sample4_ssl
+      ssl_certificate_key: /etc/edgenexus-manager/secrets/echo-echo-secret_sample4_ssl
 
 
 

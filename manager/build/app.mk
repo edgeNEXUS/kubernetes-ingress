@@ -18,6 +18,7 @@ TARGET_FLAGS += \
     --add "../lib/Edge/ClientAPI/Feed.pm Edge/ClientAPI/Feed.pm" \
     --add "../lib/Edge/ClientAPI/Feed/Config.pm Edge/ClientAPI/Feed/Config.pm" \
     --add "../lib/Edge/ClientAPI/Feed/FPS.pm Edge/ClientAPI/Feed/FPS.pm" \
+    --add "../lib/Edge/ClientAPI/Feed/TLSS.pm Edge/ClientAPI/Feed/TLSS.pm" \
     --add "../lib/Edge/ClientAPI/Feed/VSS_FPS.pm Edge/ClientAPI/Feed/VSS_FPS.pm" \
     --add "../lib/Edge/ClientAPI/Creds.pm Edge/ClientAPI/Creds.pm" \
     --add "../lib/Edge/ClientAPI/E.pm Edge/ClientAPI/E.pm" \

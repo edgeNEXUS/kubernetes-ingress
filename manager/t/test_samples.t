@@ -11,10 +11,10 @@ use Edge::ClientAPI::Feed;
 use Edge::ClientAPI::E;
 use FindBin; use lib "$FindBin::Bin/../t/lib"; use EdgeTest;
 
-sub Edge::ClientAPI::Feed::Config::HOOK_CERT_FILEPATHS($$) { # $cert_path,
-                                                             # $key_path
-    if ($_[0] eq "/etc/edgenexus-manager/secrets/echo-echo-secret" &&
-        $_[1] eq "/etc/edgenexus-manager/secrets/echo-echo-secret") {
+sub Edge::ClientAPI::Feed::TLSS::HOOK_CERT_FILEPATHS($$) { # $cert_path,
+                                                           # $key_path
+    if ($_[0] eq "/etc/edgenexus-manager/secrets/echo-echo-secret_sample4_ssl" &&
+        $_[1] eq "/etc/edgenexus-manager/secrets/echo-echo-secret_sample4_ssl") {
 
         pass "SSL cert and key paths re-assigned";
         $_[0] = "$FindBin::Bin/sample4-ssl/secret";
@@ -22,8 +22,17 @@ sub Edge::ClientAPI::Feed::Config::HOOK_CERT_FILEPATHS($$) { # $cert_path,
         return;
     }
 
-    if ($_[0] eq "/etc/edgenexus-manager/secrets/echo-echo-secret2" &&
-        $_[1] eq "/etc/edgenexus-manager/secrets/echo-echo-secret2") {
+    if ($_[0] eq "/etc/edgenexus-manager/secrets/echo-echo-secret_sample5_ssl_1" &&
+        $_[1] eq "/etc/edgenexus-manager/secrets/echo-echo-secret_sample5_ssl_1") {
+
+        pass "SSL cert and key paths re-assigned";
+        $_[0] = "$FindBin::Bin/sample5-ssl/secret";
+        $_[1] = "$FindBin::Bin/sample5-ssl/secret";
+        return;
+    }
+
+    if ($_[0] eq "/etc/edgenexus-manager/secrets/echo-echo-secret_sample5_ssl_2" &&
+        $_[1] eq "/etc/edgenexus-manager/secrets/echo-echo-secret_sample5_ssl_2") {
 
         pass "SSL cert and key paths re-assigned";
         $_[0] = "$FindBin::Bin/sample5-ssl/secret2";
@@ -45,6 +54,7 @@ sub test_yaml($) {
 
     my $cv = AE::cv;
 
+    diag "Process files from directory $yaml_dir...";
     async {
         my $feed = Edge::ClientAPI::Feed->new($creds, $yaml_dir);
         $feed->update_config;
@@ -72,11 +82,11 @@ sub test_yaml($) {
 
 sub main() {
     my @yaml_dirs = (
-        #"$FindBin::Bin/sample/",
-        #"$FindBin::Bin/sample2/",
-        #"$FindBin::Bin/sample3/",
-        "$FindBin::Bin/sample4-ssl/"
-        #"$FindBin::Bin/sample5-ssl/"
+        "$FindBin::Bin/sample/",       # OK
+        "$FindBin::Bin/sample2/",      # OK
+        "$FindBin::Bin/sample4-ssl/",  # OK
+        "$FindBin::Bin/sample5-ssl/",  # OK
+        "$FindBin::Bin/sample3/",      # OK
     );
 
     for my $dir (@yaml_dirs) {

@@ -12,11 +12,12 @@ sub new {
 }
 
 sub add {
-    my ($self, $vs_ip, $vs_port, $fps, $tls) = @_;
+    my ($self, $vs_ip, $vs_port, $fps, $tlss) = @_;
 
-    push @$self, { vs  => { ip => $vs_ip, port => $vs_port },
-                   tls => $tls,
-                   fps => $fps };
+    # It is allowed to duplicate $vs_ip and $vs_port.
+    push @$self, { vs   => { ip => $vs_ip, port => $vs_port },
+                   tlss => $tlss,
+                   fps  => $fps };
     ()
 }
 
@@ -40,11 +41,11 @@ sub get_fps_by_vs {
     return undef;
 }
 
-sub get_tls_by_vs {
+sub get_tlss_by_vs {
     my ($self, $ip, $port) = @_;
     for my $el (@$self) {
         if ($ip eq $el->{vs}{ip} && $port == $el->{vs}{port}) {
-            return $el->{tls}; # Can be undefined.
+            return $el->{tlss}; # Can be undefined.
         }
     }
     return undef;
@@ -59,7 +60,7 @@ sub enum {
     ()
 }
 
-sub get_all_fps_names {
+sub get_all_uniq_fps_names {
     my $self = shift;
 
     my %all;
@@ -77,16 +78,19 @@ sub get_all_fps_names {
     return %all ? \%all : undef;
 }
 
-sub get_all_cert_names {
+sub get_all_uniq_cert_names {
     my $self = shift;
 
     my %all;
     for my $el (@$self) {
-        my $tls = $el->{tls};
-        next unless $tls;
-        my $name = $tls->{name};
-        next unless $name;
-        $all{$name}++;
+        my $tlss = $el->{tlss};
+        next unless $tlss;
+        my $names = $tlss->get_tlss_names;
+        next unless $names;
+        # Merge names
+        for my $name (sort keys %$names) {
+            $all{$name}++;
+        }
     }
 
     return %all ? \%all : undef;

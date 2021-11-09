@@ -4,10 +4,9 @@ use Try::Tiny;
 use YAML::Tiny;
 use Data::Dumper;
 use Safe::Isa;
-use Crypt::OpenSSL::PKCS12;
-use Edge::ClientAPI::Util::Cert;
 use Digest::SHA;
 use Edge::ClientAPI::Feed::FPS;
+use Edge::ClientAPI::Feed::TLSS;
 use Edge::ClientAPI::Feed::VSS_FPS;
 use Edge::ClientAPI::E
     API_FEED_INVALID_YAML_INPUT => [ 5750, "Input YAML input (use file name or data reference)" ],
@@ -35,12 +34,6 @@ sub data_balancer_user { $_[0]->data->{balancer_user} } # Always defined.
 sub data_balancer_pass { $_[0]->data->{balancer_pass} } # Always defined.
 sub data_external_ip   { $_[0]->data->{external_ip}   } # Always defined.
 
-sub HOOK_CERT_FILEPATHS($$) { # $cert_path, $key_path
-    # Redefine this subroutine in your tests to re-assign paths by using
-    # $_[0] and $_[1].
-    ()
-}
-
 sub build_required_vss_fps {
     my ($self) = @_;
 
@@ -52,9 +45,10 @@ sub build_required_vss_fps {
 
     my $vss_fps = Edge::ClientAPI::Feed::VSS_FPS->new;
     for (@$vss_array) {
-        my ($vs_ip, $vs_port, $tls) = @$_;
-        my $fps = Edge::ClientAPI::Feed::FPS->new($self, $vs_ip, $vs_port);
-        $vss_fps->add($vs_ip, $vs_port, $fps, $tls);
+        my ($vs_ip, $vs_port) = @$_;
+        my $fps  = Edge::ClientAPI::Feed::FPS->new($self, $vs_ip, $vs_port);
+        my $tlss = Edge::ClientAPI::Feed::TLSS->new($self, $vs_ip, $vs_port);
+        $vss_fps->add($vs_ip, $vs_port, $fps, $tlss);
     }
 
     return $vss_fps;
@@ -77,66 +71,6 @@ sub get_upstream_by_name {
     return undef;
 }
 
-
-
-sub make_adc_commands {
-    my ($self, $vss, %args) = @_;
-    my @commands;
-    #my $vss_array = $self->_get_unique_vss_to_run;
-    #
-    #if ($vss_array) {
-    #    # Check what VSs are not created.
-    #    AE::log info => "Need to run %u VSs for Ingress Controller",
-    #                    scalar @$vss_array;
-    #
-    #} else {
-    #    AE::log info => "No VSs for Ingress Controller";
-    #
-    #}
-    #
-    #exit;
-    #
-    #my $vs_ingress  = $self->find_ingress_vs;
-    #
-    #unless ($vs_ingress) {
-#        AE::log info => "Ingress VS with IP %s is not found on the ADC",
-#                        $external_ip;
-#        push @commands, '';
-   # }
-   # else {
-   #
-  # }
-
-
-
- #   for my $el (@$vss) {
- #       for my $vs (@$el) {
- #           if ($vs->ip ne $external_ip || !@{$self->data_services}) {
- #               push @del, [ $vs->ip, $vs->port ];
- #           }
- #       }
- #   }
-
-
-
-
-}
-
-#sub find_ingress_vs {
-#    my ($self, $vss) = @_;
-#    my $external_ip = $self->data_external_ip;
-#
-#    for my $el (@$vss) {
-#        for my $vs (@$el) {
-#            if ($vs->ip eq $external_ip) {
-#                return $vs;
-#            }
-#        }
-#    }
-#
-#    return undef;
-#}
-
 sub _get_unique_vss_to_run {
     my ($self) = @_;
 
@@ -145,7 +79,10 @@ sub _get_unique_vss_to_run {
 
     my @vss_array;
     my %uniq;
+
     for my $service (@$services) {
+        # Go through one service that contains own hostname, HTTP/HTTPS
+        # listeners, and one SSL certificate (if HTTPS).
         my $listeners = $service->{listeners};
 
         if ($listeners && @$listeners) {
@@ -154,7 +91,7 @@ sub _get_unique_vss_to_run {
                 next unless $port > 0 && $port <= 0xFFFF;
                 my $ip = $lst->{address};
                 $ip = $external_ip unless length $ip;
-                $uniq{"$ip:$port"} = [ $ip, $port, undef ];
+                $uniq{"$ip:$port"} = [ $ip, $port ];
             }
         }
 
@@ -163,47 +100,12 @@ sub _get_unique_vss_to_run {
             next unless @$ssl_listeners;
 
             # Collect listeners.
-            my %tls;
             for my $lst (@$ssl_listeners) {
                 my $port = $lst->{port};
                 next unless $port > 0 && $port <= 0xFFFF;
                 my $ip = $lst->{address};
                 $ip = $external_ip unless length $ip;
-                $uniq{"$ip:$port"} = [ $ip, $port, \%tls ];
-            }
-
-            # Get certificate. It is common for all SSL listeners from above.
-            my $pkcs12      = Crypt::OpenSSL::PKCS12->new;
-            my $pkcs12_name = "Friendly name";
-            my $pkcs12_pwd  = "tmppass"; # TODO: random
-            my $cert_path   = $service->{ssl}{ssl_certificate};
-            my $key_path    = $service->{ssl}{ssl_certificate_key};
-            HOOK_CERT_FILEPATHS($cert_path, $key_path);
-            my $pkcs12_path = $cert_path . ".p12";
-
-            $pkcs12->create($cert_path,  $key_path,
-                            $pkcs12_pwd, $pkcs12_path, $pkcs12_name);
-
-            my $fh;
-            if (open $fh, '<', $pkcs12_path) {
-                binmode $fh;
-                my $buf = do { local $/ = undef; <$fh> };
-                close $fh;
-                unlink $pkcs12_path;
-
-                my $sha1 = Digest::SHA->new(1);
-                $sha1->addfile($cert_path);
-                $sha1->addfile($key_path);
-
-                $tls{sum} = $sha1->hexdigest;
-                $tls{pwd} = $pkcs12_pwd;
-                $tls{crt} = Edge::ClientAPI::Util::Cert->new(
-                                    pkcs12_string   => $buf,
-                                    pkcs12_password => 'tmppass');
-                $tls{name} = 'Kubernetes_IC_SHA1_cert_' . $tls{sum};
-            } else {
-                unlink $pkcs12_path;
-                die "PKCS12 file is not created from SSL cert and key: $!";
+                $uniq{"$ip:$port"} = [ $ip, $port ];
             }
         }
     }
@@ -211,7 +113,7 @@ sub _get_unique_vss_to_run {
     return undef unless %uniq;
 
     for (sort keys %uniq) {
-        push @vss_array, $uniq{$_}; # [ IP, PORT [, TLS ] ]
+        push @vss_array, $uniq{$_}; # [ IP, PORT ]
     }
 
     return \@vss_array;

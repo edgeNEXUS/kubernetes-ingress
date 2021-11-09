@@ -173,11 +173,65 @@ sub enum_rs {
     ()
 }
 
+sub ssl_certificate_names_aref {
+    my $self = shift;
+    return undef unless length $self->ssl_certificate_names;
+
+    my @names = split /,/, $self->ssl_certificate_names;
+    my %valid;
+    for (@names) {
+        if (length $_) {
+            $valid{$_}++;
+        }
+    }
+
+    return %valid ? [ sort keys %valid ] : undef;
+}
+
+sub has_ssl_certificate_name {
+    my ($self, $name) = @_;
+    my $names = $self->ssl_certificate_names_aref;
+    return 0 unless defined $names;
+
+    for (@$names) {
+        if ($_ eq $name) {
+            return 1; # Certificate name exists
+        }
+    }
+
+    return 0;
+}
+
+sub has_same_ssl_certificate_names {
+    my ($self, $aref) = @_;
+    my $names = $self->ssl_certificate_names_aref;
+    unless (defined $aref && @$aref) {
+        return 1 unless defined $names; # Both are with no names.
+        return 0;
+    }
+
+    return 0 unless defined $names; # $aref is not empty, but VS is.
+
+    # @$names and @$aref are not empty array refs.
+    my %hash;
+    $hash{$_} .= 'vs'    for @$names;
+    $hash{$_} .= 'found' for @$aref;
+
+    for my $name (sort keys %hash) {
+        my $val = $hash{$name};
+        unless ($val eq 'vsfound') {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 sub service_name { $_[0]{serviceName} }
 sub interface_id { $_[0]{InterfaceID} }
 sub channel_id   { $_[0]{ChannelID}   }
 sub channel_key  { $_[0]{ChannelKey}  }
-# TODO: What if multiple certs on VS?
-sub ssl_certificate_name { $_[0]{sslCertificate} }
+
+sub ssl_certificate_names { $_[0]{sslCertificate} } # Comma-separated: no spaces
 
 1;
