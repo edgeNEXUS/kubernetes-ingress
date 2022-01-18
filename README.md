@@ -215,5 +215,5 @@ TODO
 3. Prepare IC image with the ADC with VS address(es) determined correctly.
 4. Are RS balanced if they specified by `Use Server` action?
 5. Clean source code after finalization.
-6. Use helm templates (can be copied from NGINX IC -- Apache License,
+6. Use helm templates
 Version 2.0).
