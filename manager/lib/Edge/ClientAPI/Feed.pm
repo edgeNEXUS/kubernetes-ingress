@@ -11,6 +11,7 @@ use Edge::ClientAPI::E
 ;
 
 our $VS_NAME                  = 'Kubernetes IC external IP';
+our $VS_INT_NAME              = 'Kubernetes IC internal IP';
 our $QR_FP_NAME_KUBERNETES_IC = qr!Kubernetes\s+IC\s+!;
 
 sub STOPPED { \&STOPPED }
@@ -143,7 +144,8 @@ sub delete_unused_vss {
     my @del;
     for my $el (@$vss) {
         for my $vs (@$el) {
-            next unless $vs->service_name eq $VS_NAME;
+            next unless $vs->service_name eq $VS_NAME ||
+                        $vs->service_name eq $VS_INT_NAME;
             my $remove = 1;
 
             if ($vss_fps) {
@@ -157,6 +159,12 @@ sub delete_unused_vss {
                 push @del, [ $vs->ip, $vs->port ];
             }
         }
+    }
+
+    unless (@del) {
+        AE::log debug => "No VSs to be deleted";
+    } else {
+        AE::log trace => "VSs to be deleted:\n%s", Dumper+\@del;
     }
 
     # Delete unused VSs.
@@ -231,6 +239,8 @@ sub configure_used_vss {
         }
     }
 
+    AE::log trace => "VSs/RSs/FPs final configuration:\n%s", Dumper+\@used;
+
     for my $pair (@used) {
         my ($vs, $fps, $tlss) = @$pair;
         AE::log info => "VS %s:%s/%s already created, configure only RSs...",
@@ -267,7 +277,7 @@ sub add_new_vss_and_configure {
         }
 
         unless ($found) {
-            push @add, [ $vs2->{ip}, $vs2->{port}, $fps, $tlss ];
+            push @add, [ $vs2->{ip}, $vs2->{port}, $fps, $tlss, $vs2->{is_int_vip} ];
         }
     });
 
@@ -277,12 +287,14 @@ sub add_new_vss_and_configure {
     }
 
     for my $pair (@add) {
-        my ($ip, $port, $fps, $tlss) = @$pair;
+        my ($ip, $port, $fps, $tlss, $is_int_vip) = @$pair;
         my $subnet = "255.255.255.255"; # TODO: Which one?
+        my $name   = $is_int_vip ? $VS_INT_NAME : $VS_NAME;
 
-        AE::log info => "Create VS %s/%s:%s", $ip, $subnet, $port;
+        AE::log info => "Create VS %s/%s:%s with name %s",
+                        $ip, $subnet, $port, $name;
         my ($vs, $hdr) = $self->cli->create_vs(
-                            $VS_NAME, $ip, $subnet, $port, 'HTTP');
+                            $name, $ip, $subnet, $port, 'HTTP');
         die STOPPED unless $self;
 
         unless ($hdr->{Success}) {
@@ -395,6 +407,10 @@ sub configure_vs_rss {
     # already created, reuse it for current VS.
     $fps->enum_fps_hashes(sub {
         my ($fp, $sha1) = @_;
+
+        return unless $fp->{is_active}; # Currently, inactive FP (for internal VIP)
+                                        # is not to be created.
+
         my $fp_name = "Kubernetes IC sha1 $sha1";
         $fp_sha1{$fp_name} = 1;
 
@@ -446,6 +462,7 @@ sub configure_vs_rss {
         my $names = $vs->get_fp_names_all_by_regex($QR_FP_NAME_KUBERNETES_IC);
 
         for my $name (sort keys %$names) {
+            # FP name exists in %fp_sha1 if it is active only.
             if (exists $fp_sha1{$name}) {
                 AE::log info => "Kubernetes flightPATH '%s' is used", $name;
                 next;
@@ -524,10 +541,11 @@ sub configure_vs_rss {
     for (@del_rss) {
         my ($_ip, $_port) = @$_;
         AE::log info => "Remove RS %s:%s...", $_ip // 'NULL', $_port // 'NULL';
-        my (undef, $hdr) = $self->cli->remove_rs_by_specs(
+        my ($vs_changed, $hdr) = $self->cli->remove_rs_by_specs(
                     { addr => $_ip, port => $_port },
                     $vs->ip, $vs->subnet, $vs->port
         );
+
         die STOPPED unless $self;
 
         unless ($hdr->{Success}) {
@@ -548,26 +566,26 @@ sub configure_vs_rss {
         my @rss_ref;
         for my $rs (@add_rss) {
             #push @rss_ref, { addr => $rs->{ip}, port => $rs->{port} };
-        #}
+            #AE::log info => "Add missed RSs: %s", Dumper+\@rss_ref;
 
-        AE::log info => "Add missed RSs: %s", Dumper+\@rss_ref;
+            #my ($vs, $hdr) = $self->cli->init_rs_multi_by_specs(
+            #    \@rss_ref, $vs->ip, $vs->subnet, $vs->port, -vs => $vs);
+            # TODO: Do we need to use RS upsert?
+            my ($vs_changed, $hdr) = $self->cli->upsert_rs(
+                { addr => $rs->{ip}, port => $rs->{port} }, $vs->ip, $vs->subnet, $vs->port, -vs => $vs);
+            #warn "UPSERT RESULT: self=$self, vs=$vs";
+            die STOPPED unless $self;
 
-        #my ($vs, $hdr) = $self->cli->init_rs_multi_by_specs(
-        #    \@rss_ref, $vs->ip, $vs->subnet, $vs->port, -vs => $vs);
-        # TODO: Do we need to use RS upsert?
-        my ($vs, $hdr) = $self->cli->upsert_rs(
-            { addr => $rs->{ip}, port => $rs->{port} }, $vs->ip, $vs->subnet, $vs->port, -vs => $vs);
-        #warn "UPSERT RESULT: self=$self, vs=$vs";
-        die STOPPED unless $self;
+            #warn "press ENTER: $vs: $hdr->{Detail}\n"; my $in = <STDIN>;
 
-        #warn "press ENTER: $vs: $hdr->{Detail}\n"; my $in = <STDIN>;
+            unless ($hdr->{Success}) {
+                die e40_format(EDGE_ERROR, $hdr->{Detail});
+            }
 
-        unless ($hdr->{Success}) {
-            die e40_format(EDGE_ERROR, $hdr->{Detail});
-        }
+            AE::log info => "Added all RSs for VS %s/%s:%s",
+                            $vs->ip, $vs->subnet, $vs->port;
 
-        AE::log info => "Added all RSs for VS %s/%s:%s",
-                        $vs->ip, $vs->subnet, $vs->port;
+            $vs = $vs_changed;
         }
     }
 
@@ -586,7 +604,7 @@ sub remove_not_used_fps {
     }
 
     my $used_fp_names = $vss_fps
-                      ? $vss_fps->get_all_uniq_fps_names # Can be undefined.
+                      ? $vss_fps->get_all_uniq_fps_names(-only_active => 1) # Can be undefined.
                       : undef;
 
     AE::log trace => "Used Kubernetes FPs: %s",

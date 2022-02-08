@@ -15,6 +15,11 @@ sub new {
     return bless $tlss_aref, $class;
 }
 
+sub new_empty {
+    my ($class) = @_;
+    return bless [], $class;
+}
+
 sub HOOK_CERT_FILEPATHS($$) { # $cert_path, $key_path
     # Redefine this subroutine in your tests to re-assign paths by using
     # $_[0] and $_[1].

@@ -51,6 +51,8 @@ sub build_required_vss_fps {
         $vss_fps->add($vs_ip, $vs_port, $fps, $tlss);
     }
 
+    $vss_fps->expand_to_internal_vss;
+
     return $vss_fps;
 }
 

@@ -1,0 +1,84 @@
+---
+
+config:
+  version: 3
+
+---
+# EdgeNEXUS main configuration
+balancer_ip: 192.168.2.132
+external_ip: 192.168.2.135
+
+---
+# EdgeNEXUS configuration for echo/echo-ingress
+
+upstreams:
+  
+  - name: echo-echo-ingress-edgeecho-echo-service-80
+    servers:
+    
+      - address: 10.244.0.16
+        port: 80
+      - address: 10.244.0.12
+        port: 80
+    
+  - name: echo-echo-ingress-edgeecho-other-service-80
+    servers:
+    
+      - address: 10.244.0.44
+        port: 80
+      - address: 10.244.0.45
+        port: 80
+
+services:
+  
+  - hostname: "edgeecho"
+    resource_type: "ingress"
+    resource_name: "echo-ingress"
+    resource_namespace: "echo"
+
+    listeners:
+    
+    
+      - port: 80
+
+    
+
+    locations:
+    
+# `echo` is namespace.
+# `echo-ingress` is ingress name.
+# `edgeecho` is HTTP hostname.
+# `echo-service` is Kubernetes backend service name.
+# `80` is port. (See /deployments/020-ingress-echo.yaml as an example).
+
+      - path: /
+        service_name: "echo-service"
+        rewrite: ""
+        upstream: "echo-echo-ingress-edgeecho-echo-service-80"
+        
+# `echo` is namespace.
+# `echo-ingress` is ingress name.
+# `edgeecho` is HTTP hostname.
+# `other-service` is Kubernetes backend service name.
+# `80` is port.
+#
+# For instance, ADC external IP is 192.168.2.135,
+# upstream `echo-echo-ingress-edgeecho-other-service-80` (with IC pod IPs):
+# 10.244.0.12, 10.244.0.16.
+
+      - path: /abc
+        service_name: "other-service"
+        rewrite: ""
+        upstream: "echo-echo-ingress-edgeecho-other-service-80"
+
+
+    
+
+    real_ip_from:
+      
+
+    
+
+    
+
+  

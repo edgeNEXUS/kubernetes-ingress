@@ -13,6 +13,11 @@ sub new {
     return bless $fps_aref, $class;
 }
 
+sub new_from_array {
+    my ($class, $fps_aref) = @_;
+    return bless $fps_aref, $class;
+}
+
 sub __upsert_rss_by_ip_port(\@$$) {
     my ($rss, $ip, $port) = @_;
     for (@$rss) {
@@ -118,6 +123,11 @@ sub __get_fps_for_vs {
                 rewrite      => $loc->{rewrite},
                 real_ip_from => $svc->{real_ip_from},
                 rss          => \@fp_rss,
+                is_int_vip   => 0, # Since it's built from feed config, it's not
+                                   # for internal VS. But it can be changed
+                                   # later if copied.
+                is_active    => 1, # Only active FP is being created and
+                                   # applied to VS.
             );
 
             push @flight_paths, \%flight_path;
@@ -178,11 +188,15 @@ sub enum_fps_hashes {
     ()
 }
 
+# $args{-only_active}
 sub get_fps_names {
-    my $self = shift;
+    my ($self, %args) = @_;
     my %names;
     $self->enum_fps_hashes(sub {
         my ($fp, $sha1) = @_;
+        if ($args{-only_active}) {
+            return unless $fp->{is_active};
+        }
         my $fp_name = "Kubernetes IC sha1 $sha1";
         $names{$fp_name} = 1;
     });
