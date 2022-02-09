@@ -202,8 +202,32 @@ sub expand_to_internal_vss {
         }
     }
 
-    #warn 'g', Dumper+$self;
-    #exit;
+    # In the feed, we need to have unique IP:PORT for VSs.
+    $self->merge_internal_vss;
+
+    ()
+}
+
+sub merge_internal_vss {
+    my $self = shift;
+    my %internal_found;
+    for (@$self) {
+        next unless $_->{vs}{is_int_vip};
+        my $key = "$_->{vs}{ip}:$_->{vs}{port}";
+        if (exists $internal_found{$key}) {
+            # Merge FPs. They are different.
+            my $found = $internal_found{$key};
+            for my $fp (@{$_->{fps}}) {
+                push @{$found->{fps}}, $fp;
+            }
+            $_ = undef;
+        } else {
+            $internal_found{$key} = $_;
+        }
+    }
+
+    my @only_defined = grep { defined $_ } @$self;
+    @$self = @only_defined;
     ()
 }
 

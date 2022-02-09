@@ -286,6 +286,7 @@ sub add_new_vss_and_configure {
         return;
     }
 
+    AE::log trace => "VSs to be added:\n%s", Dumper+\@add;
     for my $pair (@add) {
         my ($ip, $port, $fps, $tlss, $is_int_vip) = @$pair;
         my $subnet = "255.255.255.255"; # TODO: Which one?
