@@ -63,7 +63,7 @@ upstreams:
   - name: httpbin-httpbin-ingress-edgehttpbin-httpbin-80
     servers:
     
-      - address: 10.244.77.11
+      - address: 10.244.77.22
         port: 80
     
   
