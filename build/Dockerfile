@@ -16,6 +16,10 @@ RUN groupadd --system --gid 101 edgenexus \
 ############################# Base image for CentOS 8 ##########################
 FROM centos:8 AS centos8
 
+# Fix CentOS 8 EOL
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
+RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+
 RUN yum update -y
 RUN yum clean all
 
