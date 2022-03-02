@@ -10,9 +10,10 @@ use Edge::ClientAPI::Feed::Config;
 use Edge::ClientAPI::E
 ;
 
-our $VS_NAME                  = 'Kubernetes IC external IP';
-our $VS_INT_NAME              = 'Kubernetes IC internal IP';
-our $QR_FP_NAME_KUBERNETES_IC = qr!Kubernetes\s+IC\s+!;
+our $VS_NAME                  = 'KUBERNETES INGRESS IP ';
+our $VS_INT_NAME              = 'INT_VIP for ';
+# FPs are set for $VS_NAME, not for $VS_INT_NAME.
+our $QR_FP_NAME_KUBERNETES_IC = qr!KUBERNETES\s+INGRESS\s+IP\s+!;
 
 sub STOPPED { \&STOPPED }
 
@@ -144,8 +145,8 @@ sub delete_unused_vss {
     my @del;
     for my $el (@$vss) {
         for my $vs (@$el) {
-            next unless $vs->service_name eq $VS_NAME ||
-                        $vs->service_name eq $VS_INT_NAME;
+            next unless $vs->service_name =~ /^\Q$VS_NAME\E/ ||
+                        $vs->service_name =~ /^\Q$VS_INT_NAME\E/;
             my $remove = 1;
 
             if ($vss_fps) {
@@ -277,7 +278,7 @@ sub add_new_vss_and_configure {
         }
 
         unless ($found) {
-            push @add, [ $vs2->{ip}, $vs2->{port}, $fps, $tlss, $vs2->{is_int_vip} ];
+            push @add, [ $vs2->{ip}, $vs2->{port}, $fps, $tlss, $vs2->{is_int_vip}, $vs2->{peer_vip_ip} ];
         }
     });
 
@@ -288,9 +289,10 @@ sub add_new_vss_and_configure {
 
     AE::log trace => "VSs to be added:\n%s", Dumper+\@add;
     for my $pair (@add) {
-        my ($ip, $port, $fps, $tlss, $is_int_vip) = @$pair;
+        my ($ip, $port, $fps, $tlss, $is_int_vip, $peer_vip_ip) = @$pair;
         my $subnet = "255.255.255.255"; # TODO: Which one?
         my $name   = $is_int_vip ? $VS_INT_NAME : $VS_NAME;
+        $name .= $peer_vip_ip;
 
         AE::log info => "Create VS %s/%s:%s with name %s",
                         $ip, $subnet, $port, $name;

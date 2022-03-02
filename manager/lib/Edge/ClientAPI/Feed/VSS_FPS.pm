@@ -15,9 +15,10 @@ sub add {
     my ($self, $vs_ip, $vs_port, $fps, $tlss, %args) = @_;
 
     # It is allowed to duplicate $vs_ip and $vs_port.
-    push @$self, { vs   => { ip         => $vs_ip,
-                             port       => $vs_port,
-                             is_int_vip => $args{-int_vip} ? 1 : 0 },
+    push @$self, { vs   => { ip          => $vs_ip,
+                             port        => $vs_port,
+                             peer_vip_ip => $args{-peer_vip_ip},
+                             is_int_vip  => $args{-int_vip} ? 1 : 0 },
                    tlss => $tlss,
                    fps  => $fps };
     ()
@@ -160,8 +161,8 @@ sub expand_to_internal_vss {
 
     my @static = @$self;
     for my $vs_fps (@static) {
-
-        my $fps = $vs_fps->{fps};
+        my $vs_ext_ip = $vs_fps->{vs}->{ip};
+        my $fps       = $vs_fps->{fps};
 
         for my $fp (@$fps) {
             # Clone RSs with replaced IP to 127.* pattern.
@@ -174,12 +175,17 @@ sub expand_to_internal_vss {
                 $_ = \%hash;
 
                 push @ip_variants, $_->{ip};
+                #$ip_variants[-1] =~ s!^\d+!127!;
+                $ip_variants[-1] = $vs_ext_ip;
                 $ip_variants[-1] =~ s!^\d+!127!;
+
                 $port_variant = $_->{port};
             }
 
             my %fp_copy = %$fp;
             $fp_copy{rss} = \@rss;
+            $vs_fps->{vs}->{peer_vip_ip} ||= $ip_variants[0]; # Set INT_VIP
+                                                              # address.
 
             if (1) {
                 # It's time to build a new internal VS (127.*).
@@ -194,7 +200,9 @@ sub expand_to_internal_vss {
                 # Add internal VS on top (to create/change them first - before
                 # real VS).
                 my ($vs_ip, $vs_port) = ($ip_variants[0], $port_variant);
-                $self->add_on_top($vs_ip, $vs_port, $fps_new, $tlss, -int_vip => 1);
+
+                $self->add_on_top($vs_ip, $vs_port, $fps_new, $tlss,
+                                  -int_vip => 1, -peer_vip_ip => $vs_ext_ip);
 
                 # Replace IC pod RSs to new internal VS.
                 $fp->{rss} = [ { ip => $vs_ip, port => $vs_port } ];

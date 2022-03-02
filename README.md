@@ -194,7 +194,11 @@ used for services that have no endpoints.
 Development
 -----------
 
-To build project in container and push image to
+To build project in container:
+
+    make centos8-image TARGET=container
+
+Or build project in container and push image to
 `edgenexus/edgenexus-ingress:latest-centos8`:
 
     make centos8-image-push TARGET=container
