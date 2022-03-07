@@ -13,7 +13,7 @@ use Edge::ClientAPI::E
 our $VS_NAME                  = 'KUBERNETES INGRESS IP ';
 our $VS_INT_NAME              = 'INT_VIP for ';
 # FPs are set for $VS_NAME, not for $VS_INT_NAME.
-our $QR_FP_NAME_KUBERNETES_IC = qr!KUBERNETES\s+INGRESS\s+IP\s+!;
+our $QR_FP_NAME_KUBERNETES_IC = qr!^Kube-IC .+-[0-9a-f]{8}$!;
 
 sub STOPPED { \&STOPPED }
 
@@ -414,7 +414,10 @@ sub configure_vs_rss {
         return unless $fp->{is_active}; # Currently, inactive FP (for internal VIP)
                                         # is not to be created.
 
-        my $fp_name = "Kubernetes IC sha1 $sha1";
+        my $fp_desc = "Kubernetes IC sha1 $sha1";
+        # "Kube-IC {metadata > name}-ingress-{last 8 digits of SHA hash in new description}"
+        my $ssha1   = substr $sha1, 0, 8;
+        my $fp_name = "Kube-IC $fp->{resource_name}-$ssha1";
         $fp_sha1{$fp_name} = 1;
 
         AE::log info => "FP with the name '%s' is to be created", $fp_name;
@@ -429,7 +432,7 @@ sub configure_vs_rss {
                     undef, # Arrayref with VSs that have flightPATH by the name.
                     $vs->ip, $vs->port,
                     $fp_name,
-                    'Edgenexus-Manager',
+                    $fp_desc,
                     $fp->{rss}[0]{ip},
                     $fp->{rss}[0]{port},
                     $fp->{path},

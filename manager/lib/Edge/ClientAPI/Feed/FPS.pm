@@ -46,6 +46,8 @@ sub __get_fps_for_vs {
     for my $svc (@$services) {
         my $hostname = $svc->{hostname};
         next unless length $hostname;
+        my $resource_name = $svc->{resource_name};
+        my $resource_namespace = $svc->{resource_namespace};
 
         my $listeners = $svc->{listeners};
         next unless $listeners && @$listeners;
@@ -119,6 +121,9 @@ sub __get_fps_for_vs {
                 # For FP conditions.
                 hostname     => $hostname,
                 path         => $loc->{path},
+                # Add resource name and its namespace for SHA1 uniqueness.
+                resource_name      => $resource_name,
+                resource_namespace => $resource_namespace,
                 # For FP actions.
                 rewrite      => $loc->{rewrite},
                 real_ip_from => $svc->{real_ip_from},
@@ -197,7 +202,10 @@ sub get_fps_names {
         if ($args{-only_active}) {
             return unless $fp->{is_active};
         }
-        my $fp_name = "Kubernetes IC sha1 $sha1";
+
+        # "Kube-IC {metadata > name}-ingress-{last 8 digits of SHA hash in new description}"
+        my $ssha1   = substr $sha1, 0, 8;
+        my $fp_name = "Kube-IC $fp->{resource_name}-$ssha1";
         $names{$fp_name} = 1;
     });
 
