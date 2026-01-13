@@ -49,13 +49,23 @@ When local build is done, make Docker push to `$PREFIX` and `$TAG`:
 
     make push
 
+Helm Chart
+----------
+
+A Helm chart is available in `charts/edgenexus-ingress`.
+
+To install:
+
+    helm install my-release ./charts/edgenexus-ingress
+
 TODO
 ----
 
 1. Optimize API requests to the ADC; increase configuration speed.
-2. Apply SSL certificates and test HTTPS.
+2. [x] Apply SSL certificates and test HTTPS. (Verified in code)
 3. Prepare IC image with the ADC with VS address(es) determined correctly.
 4. Are RS balanced if they specified by `Use Server` action?
 5. Clean source code after finalization.
-6. Use helm templates
+6. [x] Use helm templates (See `charts/edgenexus-ingress`)
+7. [ ] Implement Kubernetes Gateway API support
 Version 2.0).

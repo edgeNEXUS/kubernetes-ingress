@@ -1,0 +1,74 @@
+replicaCount: 1
+
+image:
+  repository: edgenexus/edgenexus-ingress
+  pullPolicy: IfNotPresent
+  tag: "" # Overrides the image tag whose default is the chart appVersion.
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+    add:
+    - NET_BIND_SERVICE
+  runAsUser: 101 # nginx user
+  allowPrivilegeEscalation: true
+
+service:
+  type: LoadBalancer
+  httpPort: 80
+  httpsPort: 443
+  
+ingressClass:
+  create: true
+  name: edgenexus
+  isDefault: false
+
+rbac:
+  create: true
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# EdgeNexus specific configuration
+controller:
+  # edgeBalancerIP: "127.0.0.1"
+  # edgeBalancerUser: "admin"
+  # edgeBalancerPass: "jetnexus"
+  logLevel: "info"
+  
+prometheus:
+  enabled: false
+  port: 9113

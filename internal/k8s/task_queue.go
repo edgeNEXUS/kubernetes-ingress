@@ -13,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
+	
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // taskQueue manages a work queue through an independent worker that
@@ -119,6 +121,9 @@ const (
 	appProtectLogConf
 	appProtectUserSig
 	ingressLink
+	gatewayClass
+	gateway
+	httpRoute
 )
 
 // task is an element of a taskQueue
@@ -151,6 +156,12 @@ func newTask(key string, obj interface{}) (task, error) {
 		k = globalConfiguration
 	case *conf_v1alpha1.TransportServer:
 		k = transportserver
+	case *gatewayv1beta1.GatewayClass:
+		k = gatewayClass
+	case *gatewayv1beta1.Gateway:
+		k = gateway
+	case *gatewayv1beta1.HTTPRoute:
+		k = httpRoute
 	case *unstructured.Unstructured:
 		if objectKind := obj.(*unstructured.Unstructured).GetKind(); objectKind == appprotect.PolicyGVK.Kind {
 			k = appProtectPolicy
