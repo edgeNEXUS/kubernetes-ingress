@@ -9,11 +9,12 @@ require (
 	github.com/golang/glog v1.0.0
 	github.com/google/go-cmp v0.5.6
 	github.com/imdario/mergo v0.3.12
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.12.1
 	github.com/spiffe/go-spiffe v1.1.0
-	k8s.io/api v0.22.2
-	k8s.io/apimachinery v0.22.2
-	k8s.io/client-go v0.22.2
-	k8s.io/code-generator v0.22.2
+	k8s.io/api v0.24.1
+	k8s.io/apimachinery v0.24.1
+	k8s.io/client-go v0.24.1
+	k8s.io/code-generator v0.24.1
 	sigs.k8s.io/controller-tools v0.7.0
+	sigs.k8s.io/gateway-api v0.5.0 // indirect
 )

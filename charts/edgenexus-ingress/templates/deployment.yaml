@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "edgenexus-ingress.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "edgenexus-ingress.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "edgenexus-ingress.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "edgenexus-ingress.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "edgenexus-ingress.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              protocol: TCP
+            - name: readiness-port
+              containerPort: 8081
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /edge-ready
+              port: readiness-port
+            periodSeconds: 1
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          args:
+            - -edge-reload-timeout=300000
+            - -enable-app-protect=false
+            - -edge-configmaps=$(POD_NAMESPACE)/{{ include "edgenexus-ingress.fullname" . }}
+            {{- if .Values.controller.defaultServerSecret }}
+            - -default-server-tls-secret={{ .Values.controller.defaultServerSecret }}
+            {{- else }}
+            - -default-server-tls-secret=$(POD_NAMESPACE)/{{ include "edgenexus-ingress.fullname" . }}-default-server-tls
+            {{- end }}
+            - -ingress-class={{ .Values.ingressClass.name }}
+            - -health-status=false
+            - -health-status-uri=/edge-health
+            {{- if .Values.controller.edgeBalancerIP }}
+            - -edge-balancer-ip={{ .Values.controller.edgeBalancerIP }}
+            {{- end }}
+            {{- if .Values.controller.edgeBalancerUser }}
+            - -edge-balancer-user={{ .Values.controller.edgeBalancerUser }}
+            {{- end }}
+            {{- if .Values.controller.edgeBalancerPass }}
+            - -edge-balancer-pass={{ .Values.controller.edgeBalancerPass }}
+            {{- end }}
+            - -edge-external-ip=192.168.2.135
+            - -v=1
+            - -edge-status=true
+            - -edge-status-port=8080
+            - -edge-status-allow-cidrs=127.0.0.1
+            - -report-ingress-status
+            - -external-service={{ include "edgenexus-ingress.fullname" . }}
+            - -enable-leader-election=true
+            - -leader-election-lock-name={{ include "edgenexus-ingress.fullname" . }}-leader-election
+            - -enable-custom-resources=true
+            - -enable-tls-passthrough=false
+            - -enable-snippets=false
+            - -enable-preview-policies=false
+            - -ready-status=true
+            - -ready-status-port=8081
+            - -enable-latency-metrics=false
+            {{- if .Values.prometheus.enabled }}
+            - -enable-prometheus-metrics=true
+            - -prometheus-metrics-listen-port={{ .Values.prometheus.port }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
