@@ -25,6 +25,7 @@ import (
 	cr_validation "github.com/edgeNEXUS/kubernetes-ingress/pkg/apis/configuration/validation"
 	k8s_edge "github.com/edgeNEXUS/kubernetes-ingress/pkg/client/clientset/versioned"
 	conf_scheme "github.com/edgeNEXUS/kubernetes-ingress/pkg/client/clientset/versioned/scheme"
+	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	"github.com/prometheus/client_golang/prometheus"
 	api_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -182,6 +183,8 @@ var (
 
 	enableLatencyMetrics = flag.Bool("enable-latency-metrics", false,
 		"Enable collection of latency metrics for upstreams. Requires -enable-prometheus-metrics")
+
+	enableGatewayAPI = flag.Bool("enable-gateway-api", false, "Enable support for Kubernetes Gateway API")
 
 	startupCheckFn func() error
 )
@@ -583,6 +586,18 @@ func main() {
 	}
 
 	lbc := k8s.NewLoadBalancerController(lbcInput)
+
+	if *enableGatewayAPI {
+		gatewayClient, err := gatewayclient.NewForConfig(config)
+		if err != nil {
+			glog.Fatalf("Failed to create Gateway API client: %v", err)
+		}
+		
+		gc := k8s.NewGatewayController(kubeClient, gatewayClient, cnf, 30*time.Second)
+		// Use a dedicated stop channel for Gateway Controller or share one if we refactor termination
+		// For now, we start it in background.
+		go gc.Run(make(chan struct{}))
+	}
 
 	if *readyStatus {
 		go func() {

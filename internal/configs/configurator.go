@@ -104,6 +104,7 @@ type Configurator struct {
 	templateExecutor        *version1.TemplateExecutor
 	templateExecutorV2      *version2.TemplateExecutor
 	ingresses               map[string]*IngressEx
+	gateways                map[string]*GatewayEx
 	minions                 map[string]map[string]bool
 	virtualServers          map[string]*VirtualServerEx
 	tlsPassthroughPairs     map[string]tlsPassthroughPair
@@ -139,6 +140,7 @@ func NewConfigurator(edgeManager edge.Manager, staticCfgParams *StaticConfigPara
 		staticCfgParams:         staticCfgParams,
 		cfgParams:               config,
 		ingresses:               make(map[string]*IngressEx),
+		gateways:                make(map[string]*GatewayEx),
 		virtualServers:          make(map[string]*VirtualServerEx),
 		templateExecutor:        templateExecutor,
 		templateExecutorV2:      templateExecutorV2,
@@ -1267,4 +1269,47 @@ func (cnf *Configurator) AddOrUpdateSecret(secret *api_v1.Secret) string {
 // DeleteSecret deletes a secret.
 func (cnf *Configurator) DeleteSecret(key string) {
 	cnf.edgeManager.DeleteSecret(keyToFileName(key))
+}
+
+// AddOrUpdateGateway adds or updates EdgeNexus configuration for the Gateway resource.
+func (cnf *Configurator) AddOrUpdateGateway(gEx *GatewayEx) (Warnings, error) {
+	warnings, err := cnf.addOrUpdateGateway(gEx)
+	if err != nil {
+		return warnings, fmt.Errorf("Error adding or updating gateway %v/%v: %w", gEx.Gateway.Namespace, gEx.Gateway.Name, err)
+	}
+
+	if err := cnf.reload(edge.ReloadForOtherUpdate); err != nil {
+		return warnings, fmt.Errorf("Error reloading EdgeNEXUS Manager for gateway %v/%v: %w", gEx.Gateway.Namespace, gEx.Gateway.Name, err)
+	}
+
+	return warnings, nil
+}
+
+func (cnf *Configurator) addOrUpdateGateway(gEx *GatewayEx) (Warnings, error) {
+	edgeCfg, warnings := GenerateEdgeConfigForGateway(gEx, cnf.cfgParams)
+	name := fmt.Sprintf("gw_%s_%s", gEx.Gateway.Namespace, gEx.Gateway.Name)
+
+	// We reuse the Ingress template for now as the structure is compatible (IngressEdgeConfig)
+	content, err := cnf.templateExecutor.ExecuteIngressConfigTemplate(&edgeCfg)
+	if err != nil {
+		return warnings, fmt.Errorf("Error generating Gateway Config %v: %w", name, err)
+	}
+	cnf.edgeManager.CreateConfig(name, content)
+
+	cnf.gateways[name] = gEx
+	return warnings, nil
+}
+
+// DeleteGateway deletes EdgeNexus configuration for the Gateway resource.
+func (cnf *Configurator) DeleteGateway(key string) error {
+	name := fmt.Sprintf("gw_%s", strings.Replace(key, "/", "_", -1))
+	cnf.edgeManager.DeleteConfig(name)
+
+	delete(cnf.gateways, name)
+
+	if err := cnf.reload(edge.ReloadForOtherUpdate); err != nil {
+		return fmt.Errorf("Error when removing gateway %v: %w", key, err)
+	}
+
+	return nil
 }
