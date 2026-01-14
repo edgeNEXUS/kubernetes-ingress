@@ -13,19 +13,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/configs"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/configs/version1"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/configs/version2"
+	"github.com/edgeNEXUS/kubernetes-ingress/internal/edge"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/k8s"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/k8s/secrets"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/metrics"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/metrics/collectors"
-	"github.com/edgeNEXUS/kubernetes-ingress/internal/edge"
 	cr_validation "github.com/edgeNEXUS/kubernetes-ingress/pkg/apis/configuration/validation"
 	k8s_edge "github.com/edgeNEXUS/kubernetes-ingress/pkg/client/clientset/versioned"
 	conf_scheme "github.com/edgeNEXUS/kubernetes-ingress/pkg/client/clientset/versioned/scheme"
-	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	api_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +36,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
 
 var (
@@ -73,8 +73,7 @@ var (
 	but the Ingress controller is not able to fetch it from Kubernetes API, the Ingress controller will fail to start.
 	Format: <namespace>/<name>`)
 
-// TODO: remove
-	edgePlus = flag.Bool("edge-disabled", false, "Enable support")
+	edgePlus = flag.Bool("edge-disabled", false, "Enable EdgeNEXUS Plus features")
 
 	appProtect = flag.Bool("enable-app-protect", false, "Enable support for App Protect. Requires -edge-disabled.")
 
@@ -245,7 +244,6 @@ func main() {
 		glog.Fatal("enable-tls-passthrough flag requires -enable-custom-resources")
 	}
 
-
 	if *enableInternalRoutes && *spireAgentAddress == "" {
 		glog.Fatal("enable-internal-routes flag requires spire-agent-address")
 	}
@@ -393,7 +391,6 @@ func main() {
 	//isPlus := false//strings.Contains(edgeVersion, "plus")
 	glog.Infof("Using %s", edgeVersion)
 
-
 	templateExecutor, err := version1.NewTemplateExecutor(edgeConfTemplatePath, edgeIngressTemplatePath)
 	if err != nil {
 		glog.Fatalf("Error creating TemplateExecutor: %v", err)
@@ -500,13 +497,13 @@ func main() {
 		EdgeBalancerUser:               *edgeBalancerUser,
 		EdgeBalancerPass:               *edgeBalancerPass,
 		EdgeExternalIP:                 *edgeExternalIP,
-		EdgeStatus:                    *edgeStatus,
-		EdgeStatusAllowCIDRs:          allowedCIDRs,
-		EdgeStatusPort:                *edgeStatusPort,
+		EdgeStatus:                     *edgeStatus,
+		EdgeStatusAllowCIDRs:           allowedCIDRs,
+		EdgeStatusPort:                 *edgeStatusPort,
 		StubStatusOverUnixSocketForOSS: *enablePrometheusMetrics,
 		TLSPassthrough:                 *enableTLSPassthrough,
 		EnableSnippets:                 *enableSnippets,
-		EdgeServiceMesh:               *spireAgentAddress != "",
+		EdgeServiceMesh:                *spireAgentAddress != "",
 		MainAppProtectLoadModule:       *appProtect,
 		EnableLatencyMetrics:           *enableLatencyMetrics,
 		EnablePreviewPolicies:          *enablePreviewPolicies,
@@ -539,8 +536,6 @@ func main() {
 	edgeDone := make(chan error, 1)
 	edgeManager.Start(edgeDone)
 
-
-
 	var syslogListener metrics.SyslogListener
 	syslogListener = metrics.NewSyslogFakeServer()
 
@@ -558,10 +553,10 @@ func main() {
 		DynClient:                    dynClient,
 		ResyncPeriod:                 30 * time.Second,
 		Namespace:                    *watchNamespace,
-		EdgeConfigurator:            cnf,
+		EdgeConfigurator:             cnf,
 		DefaultServerSecret:          *defaultServerSecret,
 		AppProtectEnabled:            *appProtect,
-		IsEdgePlus:                  *edgePlus,
+		IsEdgePlus:                   *edgePlus,
 		IngressClass:                 *ingressClass,
 		ExternalServiceName:          *externalService,
 		IngressLink:                  *ingressLink,
@@ -587,16 +582,16 @@ func main() {
 
 	lbc := k8s.NewLoadBalancerController(lbcInput)
 
+	var gatewayStopCh chan struct{}
 	if *enableGatewayAPI {
 		gatewayClient, err := gatewayclient.NewForConfig(config)
 		if err != nil {
 			glog.Fatalf("Failed to create Gateway API client: %v", err)
 		}
-		
+
 		gc := k8s.NewGatewayController(kubeClient, gatewayClient, cnf, 30*time.Second)
-		// Use a dedicated stop channel for Gateway Controller or share one if we refactor termination
-		// For now, we start it in background.
-		go gc.Run(make(chan struct{}))
+		gatewayStopCh = make(chan struct{})
+		go gc.Run(gatewayStopCh)
 	}
 
 	if *readyStatus {
@@ -609,9 +604,9 @@ func main() {
 	}
 
 	if *appProtect {
-		go handleTerminationWithAppProtect(lbc, edgeManager, syslogListener, edgeDone, aPAgentDone, aPPluginDone)
+		go handleTerminationWithAppProtect(lbc, edgeManager, syslogListener, edgeDone, aPAgentDone, aPPluginDone, gatewayStopCh)
 	} else {
-		go handleTermination(lbc, edgeManager, syslogListener, edgeDone)
+		go handleTermination(lbc, edgeManager, syslogListener, edgeDone, gatewayStopCh)
 	}
 
 	lbc.Run()
@@ -638,7 +633,7 @@ func createGlobalConfigurationValidator() *cr_validation.GlobalConfigurationVali
 	return cr_validation.NewGlobalConfigurationValidator(forbiddenListenerPorts)
 }
 
-func handleTermination(lbc *k8s.LoadBalancerController, edgeManager edge.Manager, listener metrics.SyslogListener, edgeDone chan error) {
+func handleTermination(lbc *k8s.LoadBalancerController, edgeManager edge.Manager, listener metrics.SyslogListener, edgeDone chan error, gatewayStopCh chan struct{}) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM)
 
@@ -659,6 +654,9 @@ func handleTermination(lbc *k8s.LoadBalancerController, edgeManager edge.Manager
 	}
 
 	glog.Info("Shutting down the controller")
+	if gatewayStopCh != nil {
+		close(gatewayStopCh)
+	}
 	lbc.Stop()
 
 	if !exited {
@@ -767,7 +765,7 @@ func validateLocation(location string) error {
 	return nil
 }
 
-func handleTerminationWithAppProtect(lbc *k8s.LoadBalancerController, edgeManager edge.Manager, listener metrics.SyslogListener, edgeDone, agentDone, pluginDone chan error) {
+func handleTerminationWithAppProtect(lbc *k8s.LoadBalancerController, edgeManager edge.Manager, listener metrics.SyslogListener, edgeDone, agentDone, pluginDone chan error, gatewayStopCh chan struct{}) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM)
 
@@ -780,6 +778,9 @@ func handleTerminationWithAppProtect(lbc *k8s.LoadBalancerController, edgeManage
 		glog.Fatalf("AppProtectAgent command exited unexpectedly with status: %v", err)
 	case <-signalChan:
 		glog.Infof("Received SIGTERM, shutting down")
+		if gatewayStopCh != nil {
+			close(gatewayStopCh)
+		}
 		lbc.Stop()
 		edgeManager.Quit()
 		<-edgeDone
