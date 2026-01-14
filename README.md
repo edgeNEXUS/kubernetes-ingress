@@ -1,71 +1,80 @@
-# How to use the Kub-IC Ingress Controller for EdgeADC #
+# EdgeNEXUS Kubernetes Ingress Controller
 
-### You can find a fully informative guide to installing and using the Kub-IC ingress controller for Kubernetes by selecting the Wiki option on the menu bar. Or, click here <https://github.com/edgeNEXUS/kubernetes-ingress/wiki> ###
+This repository contains the EdgeNEXUS Kubernetes Ingress Controller, which watches Kubernetes resources (Ingress and EdgeNEXUS CRDs) and configures an EdgeNEXUS ADC via the bundled manager.
 
-___
+- **Wiki**: `https://github.com/edgeNEXUS/kubernetes-ingress/wiki`
+- **Helm chart**: `charts/edgenexus-ingress`
+- **Example manifests**: `deployments/`
+- **In-repo docs**: `docs/`
 
-### Misc ###
+## What it supports
 
-If you need to open `bash` in IC container, run `scripts/ingress-bash.sh` or
-similar command if you are not using `kubelet`.
+- **Kubernetes Ingress (networking.k8s.io/v1)** with an `IngressClass` controller name of `k8s.edgenexus.io/ingress-controller`
+- **EdgeNEXUS CRDs** (when enabled): `VirtualServer`, `VirtualServerRoute`, `TransportServer`, `Policy`, `GlobalConfiguration`
+- **TLS termination** via Kubernetes Secrets (including a wildcard TLS secret option)
+- **Leader election** (Lease-based) for status reporting
+- **Prometheus metrics** (optional)
+- **Kubernetes Gateway API** (experimental; behind a feature flag)
 
-The script `scripts/ingress-diag.sh` is to see IC logs.
+## Compatibility
 
-Container
----------
+- **Kubernetes**: 1.19+ (the controller enforces a minimum at startup)
+- **Go**: this repo currently targets Go 1.16 in `go.mod` (newer Go toolchains can still build it)
 
-Run `make image` to create docker image with IC from CentOS 6.10 amd64 base
-image. `build/Dockerfile` is used for that.
+## Install
 
-Binaries `edgenexus-ingress` and `edgenexus-manager` are working on this OS.
+### Helm (recommended)
 
-Run `make push` to push docker image to `edgenexus/edgenexus-ingress`.
+```bash
+helm install edgenexus-ingress ./charts/edgenexus-ingress
+```
 
-Questions
----------
+### Manifests
 
-**Q:** What is RS `127.0.0.1:8181` on the ADC?
+You can also apply the example YAMLs in `deployments/`. These are useful for learning, but Helm is recommended for repeatable installs.
 
-**A:** This is the default server which should always return HTTP 502. It is
-used for services that have no endpoints.
+## Configuration
 
-Development
------------
+Most runtime options are CLI flags. Common ones include:
 
-To build project in container:
+- **Watching a namespace**: `-watch-namespace=<ns>` (default is all namespaces)
+- **Ingress class**: `-ingress-class=edgenexus`
+- **Controller ConfigMap**: `-edge-configmaps=<namespace>/<name>`
+- **Status reporting**: `-report-ingress-status` plus `-external-service` or `-ingresslink`
+- **Metrics**: `-enable-prometheus-metrics`
+- **Gateway API**: `-enable-gateway-api` (experimental)
 
-    make centos8-image TARGET=container
+For EdgeNEXUS ADC connectivity and runtime behavior, see `internal/configs/` and the chart values in `charts/edgenexus-ingress/`.
 
-Or build project in container and push image to
-`edgenexus/edgenexus-ingress:latest-centos8`:
+## Useful scripts
 
-    make centos8-image-push TARGET=container
+- **Open a shell in the ingress container**: `scripts/ingress-bash.sh`
+- **Collect diagnostics/logs**: `scripts/ingress-diag.sh`
 
-Or to build project locally (Go 1.17 must be installed on your machine):
+## Development
 
-    make centos8-image
+Build the image (CentOS 8 based):
 
-When local build is done, make Docker push to `$PREFIX` and `$TAG`:
+```bash
+make centos8-image
+```
 
-    make push
+Build inside a container:
 
-Helm Chart
-----------
+```bash
+make centos8-image TARGET=container
+```
 
-A Helm chart is available in `charts/edgenexus-ingress`.
+Push to a registry (uses `PREFIX`/`TAG`):
 
-To install:
+```bash
+make push
+```
 
-    helm install my-release ./charts/edgenexus-ingress
+## Troubleshooting
 
-TODO
-----
+- **Why do I see an upstream of `127.0.0.1:8181`?** This is the default backend that returns HTTP 502 and is used when services have no endpoints.
 
-1. Optimize API requests to the ADC; increase configuration speed.
-2. [x] Apply SSL certificates and test HTTPS. (Verified in code)
-3. Prepare IC image with the ADC with VS address(es) determined correctly.
-4. Are RS balanced if they specified by `Use Server` action?
-5. Clean source code after finalization.
-6. [x] Use helm templates (See `charts/edgenexus-ingress`)
-7. [ ] Implement Kubernetes Gateway API support
-Version 2.0).
+## Roadmap
+
+This project is actively evolving. Near-term goals include improving configuration reconciliation performance and continuing to harden Gateway API support.
