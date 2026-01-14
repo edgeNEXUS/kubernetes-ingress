@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://github.com/edgeNEXUS.png" alt="EdgeNEXUS" width="240" />
+</p>
+
 # EdgeNEXUS Kubernetes Ingress Controller
 
 This repository contains the EdgeNEXUS Kubernetes Ingress Controller, which watches Kubernetes resources (Ingress and EdgeNEXUS CRDs) and configures an EdgeNEXUS ADC via the bundled manager.
