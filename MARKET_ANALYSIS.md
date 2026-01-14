@@ -15,7 +15,7 @@ The current EdgeNexus Ingress Controller implementation is a hybrid Go/Perl arch
 *   **Observations:**
     *   The project heavily borrows concepts (and likely CRD schemas) from the F5 NGINX Ingress Controller (e.g., `VirtualServer`, `AppProtect`).
     *   It relies on an external/sidecar `edgenexus-manager` for the actual data plane configuration.
-    *   Several key "production-ready" features are marked as TODO in the README (SSL verification, Helm templates).
+    *   Some "production-ready" gaps were previously tracked in the README; those items should live in release notes/roadmaps and be validated by CI where possible.
 
 ## 2. Market Requirements for Modern Ingress Controllers
 
@@ -42,7 +42,7 @@ To meet market requirements and increase adoption, we recommend the following ro
 
 ### Phase 1: Foundation & Usability (Immediate)
 *   **Implement Helm Charts:** Create a production-quality Helm chart to replace the manual YAML manifests. This lowers the barrier to entry significantly.
-*   **Solidify TLS/SSL:** Address the "Apply SSL certificates" TODO. Ensure `cert-manager` integration is fully tested and documented. Automated certificate rotation is a must-have.
+*   **Solidify TLS/SSL:** Validate certificate handling end-to-end. Ensure `cert-manager` integration is fully tested and documented. Automated certificate rotation is a must-have.
 *   **Documentation Upgrade:** Create a "Getting Started" guide that doesn't rely on `make` commands but uses standard Kubernetes tooling.
 
 ### Phase 2: Modernization (Gateway API)

@@ -26,8 +26,8 @@ import (
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/k8s/appprotect"
 	"k8s.io/client-go/informers"
 
-	"github.com/golang/glog"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/k8s/secrets"
+	"github.com/golang/glog"
 	"github.com/spiffe/go-spiffe/workload"
 
 	"k8s.io/apimachinery/pkg/fields"
@@ -117,10 +117,10 @@ type LoadBalancerController struct {
 	ctx                           context.Context
 	cancel                        context.CancelFunc
 	configurator                  *configs.Configurator
-	watchEdgeConfigMaps          bool
+	watchEdgeConfigMaps           bool
 	watchGlobalConfiguration      bool
 	watchIngressLink              bool
-	isEdgePlus                   bool
+	isEdgePlus                    bool
 	appProtectEnabled             bool
 	recorder                      record.EventRecorder
 	defaultServerSecret           string
@@ -142,7 +142,7 @@ type LoadBalancerController struct {
 	spiffeController              *spiffeController
 	internalRoutesEnabled         bool
 	syncLock                      sync.Mutex
-	isEdgeReady                  bool
+	isEdgeReady                   bool
 	isPrometheusEnabled           bool
 	isLatencyMetricsEnabled       bool
 	configuration                 *Configuration
@@ -160,10 +160,10 @@ type NewLoadBalancerControllerInput struct {
 	DynClient                    dynamic.Interface
 	ResyncPeriod                 time.Duration
 	Namespace                    string
-	EdgeConfigurator            *configs.Configurator
+	EdgeConfigurator             *configs.Configurator
 	DefaultServerSecret          string
 	AppProtectEnabled            bool
-	IsEdgePlus                  bool
+	IsEdgePlus                   bool
 	IngressClass                 string
 	ExternalServiceName          string
 	IngressLink                  string
@@ -196,7 +196,7 @@ func NewLoadBalancerController(input NewLoadBalancerControllerInput) *LoadBalanc
 		configurator:                 input.EdgeConfigurator,
 		defaultServerSecret:          input.DefaultServerSecret,
 		appProtectEnabled:            input.AppProtectEnabled,
-		isEdgePlus:                  input.IsEdgePlus,
+		isEdgePlus:                   input.IsEdgePlus,
 		ingressClass:                 input.IngressClass,
 		reportIngressStatus:          input.ReportIngressStatus,
 		isLeaderElectionEnabled:      input.IsLeaderElectionEnabled,
@@ -2869,7 +2869,7 @@ func findProbeForPods(pods []*api_v1.Pod, svcPort *api_v1.ServicePort) *api_v1.P
 			for _, port := range container.Ports {
 				if compareContainerPortAndServicePort(port, *svcPort) {
 					// only http ReadinessProbes are useful for us
-					if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil && container.ReadinessProbe.PeriodSeconds > 0 {
+					if container.ReadinessProbe != nil && container.ReadinessProbe.ProbeHandler.HTTPGet != nil && container.ReadinessProbe.PeriodSeconds > 0 {
 						return container.ReadinessProbe
 					}
 				}
