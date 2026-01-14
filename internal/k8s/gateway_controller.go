@@ -1,17 +1,16 @@
 package k8s
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/configs"
+	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listersv1 "k8s.io/client-go/listers/core/v1"
@@ -42,13 +41,16 @@ type GatewayController struct {
 	queue              *taskQueue
 	configurator       *configs.Configurator
 	syncQueue          workqueue.RateLimitingInterface
-	
+
 	// HasSynced functions
 	gatewaySynced      cache.InformerSynced
 	gatewayClassSynced cache.InformerSynced
 	httpRouteSynced    cache.InformerSynced
 	serviceSynced      cache.InformerSynced
 	endpointSynced     cache.InformerSynced
+
+	gatewayInformerFactory gatewayinformers.SharedInformerFactory
+	kubeInformerFactory    informers.SharedInformerFactory
 }
 
 // NewGatewayController creates a new GatewayController.
@@ -70,19 +72,21 @@ func NewGatewayController(
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	gc := &GatewayController{
-		client:             gatewayClient,
-		kubeClient:         kubeClient,
-		gatewayLister:      gatewayInformer.Lister(),
-		gatewayClassLister: gatewayClassInformer.Lister(),
-		httpRouteLister:    httpRouteInformer.Lister(),
-		serviceLister:      serviceInformer.Lister(),
-		endpointLister:     endpointInformer.Lister(),
-		configurator:       configurator,
-		gatewaySynced:      gatewayInformer.Informer().HasSynced,
-		gatewayClassSynced: gatewayClassInformer.Informer().HasSynced,
-		httpRouteSynced:    httpRouteInformer.Informer().HasSynced,
-		serviceSynced:      serviceInformer.Informer().HasSynced,
-		endpointSynced:     endpointInformer.Informer().HasSynced,
+		client:                 gatewayClient,
+		kubeClient:             kubeClient,
+		gatewayLister:          gatewayInformer.Lister(),
+		gatewayClassLister:     gatewayClassInformer.Lister(),
+		httpRouteLister:        httpRouteInformer.Lister(),
+		serviceLister:          serviceInformer.Lister(),
+		endpointLister:         endpointInformer.Lister(),
+		configurator:           configurator,
+		gatewaySynced:          gatewayInformer.Informer().HasSynced,
+		gatewayClassSynced:     gatewayClassInformer.Informer().HasSynced,
+		httpRouteSynced:        httpRouteInformer.Informer().HasSynced,
+		serviceSynced:          serviceInformer.Informer().HasSynced,
+		endpointSynced:         endpointInformer.Informer().HasSynced,
+		gatewayInformerFactory: gatewayInformerFactory,
+		kubeInformerFactory:    kubeInformerFactory,
 	}
 
 	gc.queue = newTaskQueue(gc.sync)
@@ -100,18 +104,6 @@ func NewGatewayController(
 		DeleteFunc: func(obj interface{}) { gc.queue.Enqueue(obj) },
 	})
 
-	// Start informers
-	stopCh := make(chan struct{}) // TODO: Manage stopCh properly in Run. 
-	// Ideally informer factories should be started in Run, but for simplicity here we start them.
-	// But note: NewGatewayController usually shouldn't start informers. 
-	// We'll keep them here but move Start() to Run() if factories were passed in.
-	// Since factories are created here, we must start them here or store them.
-	// Storing them is better.
-	
-	// Re-design: Store factories
-	go gatewayInformerFactory.Start(stopCh)
-	go kubeInformerFactory.Start(stopCh)
-
 	return gc
 }
 
@@ -122,9 +114,12 @@ func (gc *GatewayController) Run(stopCh <-chan struct{}) {
 
 	glog.Info("Starting Gateway Controller")
 
+	gc.gatewayInformerFactory.Start(stopCh)
+	gc.kubeInformerFactory.Start(stopCh)
+
 	// Wait for caches
-	if !cache.WaitForCacheSync(stopCh, 
-		gc.gatewaySynced, 
+	if !cache.WaitForCacheSync(stopCh,
+		gc.gatewaySynced,
 		gc.gatewayClassSynced,
 		gc.httpRouteSynced,
 		gc.serviceSynced,
@@ -246,7 +241,7 @@ func (gc *GatewayController) processGateway(key string) {
 		// Update status to Ready
 		gc.updateGatewayStatus(gw)
 	}
-	
+
 	if len(warnings) > 0 {
 		glog.Warningf("Warnings for Gateway %s: %v", key, warnings)
 	}
@@ -257,7 +252,7 @@ func (gc *GatewayController) processHTTPRoute(key string) {
 	if err != nil {
 		return
 	}
-	
+
 	route, err := gc.httpRouteLister.HTTPRoutes(namespace).Get(name)
 	if err != nil {
 		return
@@ -280,7 +275,7 @@ func (gc *GatewayController) processHTTPRoute(key string) {
 
 func (gc *GatewayController) findHTTPRoutesForGateway(gw *gatewayv1beta1.Gateway) ([]*gatewayv1beta1.HTTPRoute, error) {
 	// In a real implementation, we should use an index. For now, iterate all routes.
-	allRoutes, err := gc.httpRouteLister.List(cache.Everything)
+	allRoutes, err := gc.httpRouteLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
