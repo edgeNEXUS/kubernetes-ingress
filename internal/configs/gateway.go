@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/configs/version1"
@@ -155,15 +154,15 @@ func createUpstreamForGateway(svcName string, svcPort int, endpoints []string, c
 func routeMatchesListener(route *gatewayv1beta1.HTTPRoute, listener gatewayv1beta1.Listener) bool {
 	// Simplified matching logic
 	// In production, implement full Gateway API matching spec (Section "Hostname Matching")
-	
+
 	// If listener has no hostname, it matches all (unless route specifies hostnames)
 	if listener.Hostname == nil || *listener.Hostname == "" {
 		return true
 	}
-	
+
 	// If route has no hostnames, it matches if listener allows
 	if len(route.Spec.Hostnames) == 0 {
-		return true 
+		return true
 	}
 
 	listenerHost := string(*listener.Hostname)
