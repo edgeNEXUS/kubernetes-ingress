@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -24,18 +25,19 @@ jobs:
 
   edgeadc-integration:
     runs-on: ubuntu-latest
-    env:
-      EDGEADC_IMAGE: ${{ vars.EDGEADC_IMAGE || 'edgeadc:latest' }}
     steps:
       - uses: actions/checkout@v4
       - name: Login to EdgeADC registry (optional)
         if: ${{ secrets.EDGEADC_REGISTRY_USERNAME != '' && secrets.EDGEADC_REGISTRY_PASSWORD != '' }}
         env:
-          EDGEADC_REGISTRY_HOST: ${{ vars.EDGEADC_REGISTRY_HOST || 'docker.io' }}
+          EDGEADC_REGISTRY_HOST: ${{ secrets.EDGEADC_REGISTRY_HOST }}
           EDGEADC_REGISTRY_USERNAME: ${{ secrets.EDGEADC_REGISTRY_USERNAME }}
           EDGEADC_REGISTRY_PASSWORD: ${{ secrets.EDGEADC_REGISTRY_PASSWORD }}
         run: |
+          EDGEADC_REGISTRY_HOST="${EDGEADC_REGISTRY_HOST:-docker.io}"
           echo "$EDGEADC_REGISTRY_PASSWORD" | docker login "$EDGEADC_REGISTRY_HOST" \
             -u "$EDGEADC_REGISTRY_USERNAME" --password-stdin
       - name: EdgeADC integration tests
+        env:
+          EDGEADC_IMAGE: ${{ secrets.EDGEADC_IMAGE }}
         run: ./scripts/test-edgeadc.sh
