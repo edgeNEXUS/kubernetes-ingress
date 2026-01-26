@@ -56,6 +56,18 @@ For EdgeNEXUS ADC connectivity and runtime behavior, see `internal/configs/` and
 - **Collect diagnostics/logs**: `scripts/ingress-diag.sh`
 - **Run EdgeADC-backed integration tests**: `scripts/test-edgeadc.sh`
 
+Example:
+
+```bash
+EDGEADC_IMAGE=your-registry/edgeadc:tag ./scripts/test-edgeadc.sh
+```
+
+Use an existing EdgeADC endpoint (skip container startup):
+
+```bash
+EDGEADC_SKIP_DOCKER=1 EDGEADC_API_HOST=127.0.0.1 EDGEADC_API_PORT=8443 ./scripts/test-edgeadc.sh
+```
+
 ## Development
 
 Build the image (CentOS 8 based):

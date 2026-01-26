@@ -8,6 +8,8 @@ EDGEADC_API_PORT="${EDGEADC_API_PORT:-8443}"
 EDGEADC_API_USER="${EDGEADC_API_USER:-admin}"
 EDGEADC_API_PASS="${EDGEADC_API_PASS:-jetnexus}"
 EDGEADC_WAIT_SECONDS="${EDGEADC_WAIT_SECONDS:-60}"
+EDGEADC_CONTAINER_RUNTIME="${EDGEADC_CONTAINER_RUNTIME:-docker}"
+EDGEADC_SKIP_DOCKER="${EDGEADC_SKIP_DOCKER:-0}"
 # Override settings with EDGEADC_* environment variables as needed.
 
 require_cmd() {
@@ -17,19 +19,38 @@ require_cmd() {
   fi
 }
 
-require_cmd docker
 require_cmd curl
 
+container_runtime="$EDGEADC_CONTAINER_RUNTIME"
+started_container=0
+
 cleanup() {
-  docker rm -f "$EDGEADC_CONTAINER_NAME" >/dev/null 2>&1 || true
+  if [ "$started_container" -eq 1 ]; then
+    "$container_runtime" rm -f "$EDGEADC_CONTAINER_NAME" >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
 
-echo "Starting EdgeADC container ${EDGEADC_CONTAINER_NAME}..."
-docker run -d --rm \
-  --name "$EDGEADC_CONTAINER_NAME" \
-  -p "${EDGEADC_API_PORT}:443" \
-  "$EDGEADC_IMAGE" >/dev/null
+if [ "$EDGEADC_SKIP_DOCKER" != "1" ]; then
+  if ! command -v "$container_runtime" >/dev/null 2>&1; then
+    if [ "$container_runtime" = "docker" ] && command -v podman >/dev/null 2>&1; then
+      container_runtime="podman"
+    else
+      echo "Missing required command: $container_runtime" >&2
+      echo "Set EDGEADC_SKIP_DOCKER=1 to use an existing EdgeADC endpoint." >&2
+      exit 1
+    fi
+  fi
+
+  echo "Starting EdgeADC container ${EDGEADC_CONTAINER_NAME}..."
+  "$container_runtime" run -d --rm \
+    --name "$EDGEADC_CONTAINER_NAME" \
+    -p "${EDGEADC_API_PORT}:443" \
+    "$EDGEADC_IMAGE" >/dev/null
+  started_container=1
+else
+  echo "Using existing EdgeADC at ${EDGEADC_API_HOST}:${EDGEADC_API_PORT}..."
+fi
 
 echo "Waiting for EdgeADC API on https://${EDGEADC_API_HOST}:${EDGEADC_API_PORT} ..."
 waited=0
