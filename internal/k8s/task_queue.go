@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/k8s/appprotect"
 	conf_v1 "github.com/edgeNEXUS/kubernetes-ingress/pkg/apis/configuration/v1"
 	conf_v1alpha1 "github.com/edgeNEXUS/kubernetes-ingress/pkg/apis/configuration/v1alpha1"
+	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
-	
+
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 

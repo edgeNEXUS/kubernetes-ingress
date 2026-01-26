@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/k8s/secrets"
-//	"github.com/edgeNEXUS/kubernetes-ingress/internal/edge"
+	"github.com/golang/glog"
+	//	"github.com/edgeNEXUS/kubernetes-ingress/internal/edge"
 	conf_v1alpha1 "github.com/edgeNEXUS/kubernetes-ingress/pkg/apis/configuration/v1alpha1"
 	api_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	edge502Server         = "unix:/var/lib/edge/edge-502-server.sock"
+	edge502Server          = "unix:/var/lib/edge/edge-502-server.sock"
 	internalLocationPrefix = "internal_location_"
-	edge418Server         = "unix:/var/lib/edge/edge-418-server.sock"
+	edge418Server          = "unix:/var/lib/edge/edge-418-server.sock"
 	specContext            = "spec"
 	routeContext           = "route"
 	subRouteContext        = "subroute"
@@ -2103,7 +2103,6 @@ func createUpstreamsForPlus(
 
 	return upstreams
 }
-
 
 func generateQueueForPlus(upstreamQueue *conf_v1.UpstreamQueue, defaultTimeout string) *version2.Queue {
 	if upstreamQueue == nil {

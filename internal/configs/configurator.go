@@ -98,19 +98,19 @@ type metricLabelsIndex struct {
 // This allows the Ingress Controller to incrementally build the Edgenexus configuration during the IC start and
 // then apply it at the end of the start.
 type Configurator struct {
-	edgeManager            edge.Manager
-	staticCfgParams         *StaticConfigParams
-	cfgParams               *ConfigParams
-	templateExecutor        *version1.TemplateExecutor
-	templateExecutorV2      *version2.TemplateExecutor
-	ingresses               map[string]*IngressEx
-	gateways                map[string]*GatewayEx
-	minions                 map[string]map[string]bool
-	virtualServers          map[string]*VirtualServerEx
-	tlsPassthroughPairs     map[string]tlsPassthroughPair
-	isWildcardEnabled       bool
-	isPlus                  bool
-//	labelUpdater            collector.LabelUpdater
+	edgeManager         edge.Manager
+	staticCfgParams     *StaticConfigParams
+	cfgParams           *ConfigParams
+	templateExecutor    *version1.TemplateExecutor
+	templateExecutorV2  *version2.TemplateExecutor
+	ingresses           map[string]*IngressEx
+	gateways            map[string]*GatewayEx
+	minions             map[string]map[string]bool
+	virtualServers      map[string]*VirtualServerEx
+	tlsPassthroughPairs map[string]tlsPassthroughPair
+	isWildcardEnabled   bool
+	isPlus              bool
+	//	labelUpdater            collector.LabelUpdater
 	metricLabelsIndex       *metricLabelsIndex
 	isPrometheusEnabled     bool
 	latencyCollector        latCollector.LatencyCollector
@@ -122,7 +122,7 @@ type Configurator struct {
 func NewConfigurator(edgeManager edge.Manager, staticCfgParams *StaticConfigParams, config *ConfigParams,
 	templateExecutor *version1.TemplateExecutor, templateExecutorV2 *version2.TemplateExecutor, isPlus bool, isWildcardEnabled bool,
 	//labelUpdater collector.LabelUpdater,
-    isPrometheusEnabled bool, latencyCollector latCollector.LatencyCollector, isLatencyMetricsEnabled bool) *Configurator {
+	isPrometheusEnabled bool, latencyCollector latCollector.LatencyCollector, isLatencyMetricsEnabled bool) *Configurator {
 	metricLabelsIndex := &metricLabelsIndex{
 		ingressUpstreams:             make(map[string][]string),
 		virtualServerUpstreams:       make(map[string][]string),
@@ -136,18 +136,18 @@ func NewConfigurator(edgeManager edge.Manager, staticCfgParams *StaticConfigPara
 	}
 
 	cnf := Configurator{
-		edgeManager:            edgeManager,
-		staticCfgParams:         staticCfgParams,
-		cfgParams:               config,
-		ingresses:               make(map[string]*IngressEx),
-		gateways:                make(map[string]*GatewayEx),
-		virtualServers:          make(map[string]*VirtualServerEx),
-		templateExecutor:        templateExecutor,
-		templateExecutorV2:      templateExecutorV2,
-		minions:                 make(map[string]map[string]bool),
-		tlsPassthroughPairs:     make(map[string]tlsPassthroughPair),
-		isPlus:                  isPlus,
-		isWildcardEnabled:       isWildcardEnabled,
+		edgeManager:         edgeManager,
+		staticCfgParams:     staticCfgParams,
+		cfgParams:           config,
+		ingresses:           make(map[string]*IngressEx),
+		gateways:            make(map[string]*GatewayEx),
+		virtualServers:      make(map[string]*VirtualServerEx),
+		templateExecutor:    templateExecutor,
+		templateExecutorV2:  templateExecutorV2,
+		minions:             make(map[string]map[string]bool),
+		tlsPassthroughPairs: make(map[string]tlsPassthroughPair),
+		isPlus:              isPlus,
+		isWildcardEnabled:   isWildcardEnabled,
 		//labelUpdater:            labelUpdater,
 		metricLabelsIndex:       metricLabelsIndex,
 		isPrometheusEnabled:     isPrometheusEnabled,
@@ -742,7 +742,6 @@ func (cnf *Configurator) UpdateEndpointsForVirtualServers(virtualServerExes []*V
 	return nil
 }
 
-
 // UpdateEndpointsForTransportServers updates endpoints in Edgenexus configuration for the TransportServer resources.
 func (cnf *Configurator) UpdateEndpointsForTransportServers(transportServerExes []*TransportServerEx) error {
 	reloadPlus := false
@@ -767,7 +766,6 @@ func (cnf *Configurator) UpdateEndpointsForTransportServers(transportServerExes 
 	return nil
 }
 
-
 // EnableReloads enables Edgenexus reloads meaning that configuration changes will be followed by a reload.
 func (cnf *Configurator) EnableReloads() {
 	cnf.isReloadsEnabled = true
@@ -781,8 +779,8 @@ func (cnf *Configurator) reload(isEndpointsUpdate bool) error {
 	return cnf.edgeManager.Reload(isEndpointsUpdate)
 }
 
-
 // UpdateConfig updates Edgenexus configuration parameters.
+//
 //gocyclo:ignore
 func (cnf *Configurator) UpdateConfig(cfgParams *ConfigParams, resources ExtendedResources) (Warnings, error) {
 	cnf.cfgParams = cfgParams

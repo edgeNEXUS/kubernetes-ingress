@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/golang/glog"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/k8s/secrets"
+	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"

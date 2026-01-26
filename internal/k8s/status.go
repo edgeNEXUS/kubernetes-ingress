@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
 	conf_v1 "github.com/edgeNEXUS/kubernetes-ingress/pkg/apis/configuration/v1"
 	v1 "github.com/edgeNEXUS/kubernetes-ingress/pkg/apis/configuration/v1"
 	conf_v1alpha1 "github.com/edgeNEXUS/kubernetes-ingress/pkg/apis/configuration/v1alpha1"
 	k8s_edge "github.com/edgeNEXUS/kubernetes-ingress/pkg/client/clientset/versioned"
+	"github.com/golang/glog"
 	api_v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

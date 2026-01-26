@@ -5,10 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-//	"strconv"
+	//	"strconv"
 
-	"github.com/golang/glog"
 	"github.com/edgeNEXUS/kubernetes-ingress/internal/edge"
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	api_v1 "k8s.io/api/core/v1"
@@ -16,9 +16,6 @@ import (
 
 // metricsEndpoint is the path where prometheus metrics will be exposed
 const metricsEndpoint = "/metrics"
-
-
-
 
 func runServer(port string, registry prometheus.Gatherer, prometheusSecret *api_v1.Secret) {
 	http.Handle(metricsEndpoint, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))

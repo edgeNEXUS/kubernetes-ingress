@@ -109,13 +109,13 @@ type StaticConfigParams struct {
 	EdgeBalancerUser               string
 	EdgeBalancerPass               string
 	EdgeExternalIP                 string
-	EdgeStatus                    bool
-	EdgeStatusAllowCIDRs          []string
-	EdgeStatusPort                int
+	EdgeStatus                     bool
+	EdgeStatusAllowCIDRs           []string
+	EdgeStatusPort                 int
 	StubStatusOverUnixSocketForOSS bool
 	TLSPassthrough                 bool
 	EnableSnippets                 bool
-	EdgeServiceMesh               bool
+	EdgeServiceMesh                bool
 	EnableInternalRoutes           bool
 	MainAppProtectLoadModule       bool
 	PodName                        string

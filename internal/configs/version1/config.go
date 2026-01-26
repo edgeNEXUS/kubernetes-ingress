@@ -160,9 +160,9 @@ type MainConfig struct {
 	LogFormat                          []string
 	LogFormatEscaping                  string
 	MainSnippets                       []string
-	EdgeStatus                        bool
-	EdgeStatusAllowCIDRs              []string
-	EdgeStatusPort                    int
+	EdgeStatus                         bool
+	EdgeStatusAllowCIDRs               []string
+	EdgeStatusPort                     int
 	OpenTracingEnabled                 bool
 	OpenTracingLoadModule              bool
 	OpenTracingTracer                  string

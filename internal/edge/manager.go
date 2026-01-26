@@ -22,8 +22,8 @@ const (
 	JWKSecretFileMode            = 0o644 // JWKSecretFileMode defines the default filemode for files with JWK Secrets.
 	configFileMode               = 0o644
 	jsonFileForOpenTracingTracer = "/var/lib/edgenexus-manager/tracer-config.json"
-	edgeBinaryPath              = "/edgenexus-manager"
-	edgeBinaryPathDebug         = "/edgenexus-manager"
+	edgeBinaryPath               = "/edgenexus-manager"
+	edgeBinaryPathDebug          = "/edgenexus-manager"
 
 	appProtectPluginStartCmd = "/usr/share/ts/bin/bd-socket-plugin"
 	appProtectAgentStartCmd  = "/opt/app_protect/bin/bd_agent"
@@ -37,7 +37,6 @@ const (
 	// appProtectLogConfigFileName is the location of the Edgenexus App Protect logging configuration file
 	appProtectLogConfigFileName = "/etc/app_protect/bd/logger.cfg"
 )
-
 
 // The Manager interface updates Edgenexus configuration, starts, reloads and quits Edgenexus,
 // updates 'Edgenexus +' upstream servers.
@@ -61,9 +60,9 @@ type Manager interface {
 	Reload(isEndpointsUpdate bool) error
 	Quit()
 	UpdateConfigVersionFile(openTracing bool)
-//	SetPlusClients(plusClient *client.EdgeClient, plusConfigVersionCheckClient *http.Client)
-//	UpdateServersInPlus(upstream string, servers []string, config ServerConfig) error
-//	UpdateStreamServersInPlus(upstream string, servers []string) error
+	//	SetPlusClients(plusClient *client.EdgeClient, plusConfigVersionCheckClient *http.Client)
+	//	UpdateServersInPlus(upstream string, servers []string, config ServerConfig) error
+	//	UpdateStreamServersInPlus(upstream string, servers []string) error
 	SetOpenTracing(openTracing bool)
 	AppProtectAgentStart(apaDone chan error, debug bool)
 	AppProtectAgentQuit()
@@ -74,18 +73,18 @@ type Manager interface {
 // LocalManager updates Edgenexus configuration, starts, reloads and quits Edgenexus,
 // updates 'Edgenexus +' upstream servers. It assumes that Edgenexus is running in the same container.
 type LocalManager struct {
-	confdPath                    string
-	streamConfdPath              string
-	secretsPath                  string
-	mainConfFilename             string
-	configVersionFilename        string
-	debug                        bool
-	dhparamFilename              string
-	tlsPassthroughHostsFilename  string
-	verifyConfigGenerator        *verifyConfigGenerator
-	verifyClient                 *verifyClient
-	configVersion                int
-//	plusClient                   *client.EdgeClient
+	confdPath                   string
+	streamConfdPath             string
+	secretsPath                 string
+	mainConfFilename            string
+	configVersionFilename       string
+	debug                       bool
+	dhparamFilename             string
+	tlsPassthroughHostsFilename string
+	verifyConfigGenerator       *verifyConfigGenerator
+	verifyClient                *verifyClient
+	configVersion               int
+	//	plusClient                   *client.EdgeClient
 	plusConfigVersionCheckClient *http.Client
 	metricsCollector             collectors.ManagerCollector
 	OpenTracing                  bool
@@ -335,7 +334,6 @@ func (lm *LocalManager) UpdateConfigVersionFile(openTracing bool) {
 
 	createFileAndWriteAtomically(lm.configVersionFilename, path.Dir(lm.configVersionFilename), configFileMode, cfg)
 }
-
 
 // CreateOpenTracingTracerConfig creates a json configuration file for the OpenTracing tracer with the content of the string.
 func (lm *LocalManager) CreateOpenTracingTracerConfig(content string) error {
