@@ -54,6 +54,7 @@ For EdgeNEXUS ADC connectivity and runtime behavior, see `internal/configs/` and
 
 - **Open a shell in the ingress container**: `scripts/ingress-bash.sh`
 - **Collect diagnostics/logs**: `scripts/ingress-diag.sh`
+- **Run EdgeADC-backed integration tests**: `scripts/test-edgeadc.sh`
 
 ## Development
 
