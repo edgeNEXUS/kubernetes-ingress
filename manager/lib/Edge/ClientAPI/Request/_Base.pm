@@ -277,15 +277,18 @@ sub _request($@) {
             },
         };
 
+        my @cookie_pairs;
         for (keys %{$request->{Cookie}}) {
             # Follow cookie jar format.
             $cookie->{$_} = {
                 value  => $request->{Cookie}{$_},
                 secure => $scheme eq 'https' ? 1 : 0,
             },
+            push @cookie_pairs, "$_=$request->{Cookie}{$_}";
         }
 
         AE::log trace => "Show cookie jar: %s", Dumper+$cookie_jar;
+        $headers->{'cookie'} //= join('; ', @cookie_pairs) if @cookie_pairs;
     }
 
     # Prepare URL.
