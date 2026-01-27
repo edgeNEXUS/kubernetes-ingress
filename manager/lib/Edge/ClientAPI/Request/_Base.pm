@@ -281,7 +281,7 @@ sub _request($@) {
             # Follow cookie jar format.
             $cookie->{$_} = {
                 value  => $request->{Cookie}{$_},
-                secure => 1, # API works over HTTPS only.
+                secure => $scheme eq 'https' ? 1 : 0,
             },
         }
 
