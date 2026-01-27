@@ -12,6 +12,11 @@ EDGEADC_CONTAINER_RUNTIME="${EDGEADC_CONTAINER_RUNTIME:-docker}"
 EDGEADC_SKIP_DOCKER="${EDGEADC_SKIP_DOCKER:-0}"
 # Override settings with EDGEADC_* environment variables as needed.
 
+if ! [[ "$EDGEADC_WAIT_SECONDS" =~ ^[0-9]+$ ]]; then
+  echo "EDGEADC_WAIT_SECONDS must be a non-negative integer." >&2
+  exit 1
+fi
+
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "Missing required command: $1" >&2
