@@ -152,10 +152,26 @@ sub _request($@) {
     }
 
     # Prepare URL to make HTTP request.
-    my $url = new URI sprintf("https://%s%s/%s/%s",
+    my $scheme = $request->{Scheme};
+    if (!defined $scheme || $scheme eq '') {
+        $scheme = $ENV{EDGE_TEST_API_SCHEME} // 'https';
+    }
+    $scheme = lc $scheme;
+    unless ($scheme =~ /^(https?)$/) {
+        return $cb->(undef, { %$request, Code   => API_REQ_INPUT_INVALID,
+                                         Detail => "Invalid URL scheme" });
+    }
+
+    my $port_suffix = "";
+    if (($scheme eq 'https' && $request->{Port} != 443) ||
+        ($scheme eq 'http'  && $request->{Port} != 80)) {
+        $port_suffix = ":$request->{Port}";
+    }
+
+    my $url = new URI sprintf("%s://%s%s/%s/%s",
+                              $scheme,
                               $request->{Host},
-                              $request->{Port} == 443 ? ""
-                                                      : ":$request->{Port}",
+                              $port_suffix,
                               $request->{Method},
                               $request->{Operation});
 
