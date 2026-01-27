@@ -307,9 +307,11 @@ sub _request($@) {
 
     # We don't validate SSL certificate - it's private.
     my $queried = AE::time;
+    my $timeout = $ENV{EDGE_TEST_HTTP_TIMEOUT};
+    $timeout = 120 unless defined $timeout && $timeout =~ /^[0-9]+$/ && $timeout > 0;
 
     return http_request $request->{Method} => $url_str,
-        timeout => 120, # Default timeout. Can be changed by $arg{http}{timeout}.
+        timeout => $timeout, # Default timeout. Can be changed by $arg{http}{timeout}.
 
         %{ $arg{http} },
 

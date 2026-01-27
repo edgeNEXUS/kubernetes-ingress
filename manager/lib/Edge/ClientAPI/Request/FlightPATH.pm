@@ -24,6 +24,11 @@ our @EXPORT  = qw(create_fp_custom_forward
 sub Edge::ClientAPI::Request::alb_api::error {
     my ($msg, $fatal) = @_;
     if ($fatal) {
+        if (_best_effort_enabled() &&
+            $msg =~ /Requested flightPATH .* not found/i) {
+            AE::log warn => "%s", $msg;
+            return;
+        }
         $msg .= "\n" unless $msg =~ /\n$/;
         die $msg;
     } else {
@@ -31,6 +36,12 @@ sub Edge::ClientAPI::Request::alb_api::error {
     }
 
     ()
+}
+
+sub _best_effort_enabled {
+    return defined $ENV{EDGE_TEST_BEST_EFFORT} &&
+           length $ENV{EDGE_TEST_BEST_EFFORT} &&
+           $ENV{EDGE_TEST_BEST_EFFORT} ne '0';
 }
 
 sub Edge::ClientAPI::Request::alb_api::debug {

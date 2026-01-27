@@ -11,6 +11,8 @@ EDGEADC_API_PASS="${EDGEADC_API_PASS:-jetnexus}"
 EDGEADC_WAIT_SECONDS="${EDGEADC_WAIT_SECONDS:-60}"
 EDGEADC_CONTAINER_RUNTIME="${EDGEADC_CONTAINER_RUNTIME:-docker}"
 EDGEADC_SKIP_DOCKER="${EDGEADC_SKIP_DOCKER:-0}"
+EDGE_TEST_HTTP_TIMEOUT="${EDGE_TEST_HTTP_TIMEOUT:-120}"
+EDGE_TEST_BEST_EFFORT="${EDGE_TEST_BEST_EFFORT:-0}"
 # Override settings with EDGEADC_* environment variables as needed.
 
 if ! [[ "$EDGEADC_WAIT_SECONDS" =~ ^[0-9]+$ ]]; then
@@ -20,6 +22,11 @@ fi
 
 if ! [[ "$EDGEADC_API_SCHEME" =~ ^https?$ ]]; then
   echo "EDGEADC_API_SCHEME must be http or https." >&2
+  exit 1
+fi
+
+if ! [[ "$EDGE_TEST_HTTP_TIMEOUT" =~ ^[0-9]+$ ]]; then
+  echo "EDGE_TEST_HTTP_TIMEOUT must be a non-negative integer." >&2
   exit 1
 fi
 
@@ -80,6 +87,8 @@ export EDGE_TEST_API_PORT="$EDGEADC_API_PORT"
 export EDGE_TEST_API_SCHEME="$EDGEADC_API_SCHEME"
 export EDGE_TEST_API_USER="$EDGEADC_API_USER"
 export EDGE_TEST_API_PASS="$EDGEADC_API_PASS"
+export EDGE_TEST_HTTP_TIMEOUT="$EDGE_TEST_HTTP_TIMEOUT"
+export EDGE_TEST_BEST_EFFORT="$EDGE_TEST_BEST_EFFORT"
 
 if command -v prove >/dev/null 2>&1; then
   prove -I manager/lib manager/t/test_samples.t

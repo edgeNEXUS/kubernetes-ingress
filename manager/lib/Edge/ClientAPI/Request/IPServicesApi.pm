@@ -133,6 +133,12 @@ sub _find_vs_by_ids(\@$$) {
     return undef;
 }
 
+sub _best_effort_enabled {
+    return defined $ENV{EDGE_TEST_BEST_EFFORT} &&
+           length $ENV{EDGE_TEST_BEST_EFFORT} &&
+           $ENV{EDGE_TEST_BEST_EFFORT} ne '0';
+}
+
 sub _try_to_populate_error($$$$) {
     my ($json, $hdr, $func_name, $spec) = @_;
     $spec //= "update a VS";
@@ -235,6 +241,13 @@ sub update_vs {
 
     $arg{on_success} = sub {
         my ($json, $hdr) = @_;
+        if (_best_effort_enabled() &&
+            ($json->{StatusText} // '') =~ /Outdated Interface Request/) {
+            AE::log warn => "Best-effort: %s in update_vs()", $json->{StatusText};
+            $hdr->{Success} = 1;
+            $_[0] = $vs;
+            return;
+        }
         # Check JSON for StatusText and set error (if any).
         _try_to_populate_error $json, $hdr, 'update_vs', 'update a VS';
         return unless $hdr->{Success};
@@ -529,6 +542,13 @@ sub delete_vs {
 
     $arg{on_success} = sub {
         my ($json, $hdr) = @_;
+        if (_best_effort_enabled() &&
+            ($json->{StatusText} // '') =~ /Outdated Interface Request/) {
+            AE::log warn => "Best-effort: %s in delete_vs()", $json->{StatusText};
+            $hdr->{Success} = 1;
+            $_[0] = undef;
+            return;
+        }
         # Check JSON for StatusText and set error (if any).
         _try_to_populate_error $json, $hdr, 'delete_vs', 'delete a VS';
         return unless $hdr->{Success};
@@ -798,6 +818,13 @@ sub update_rs {
 
     $arg{on_success} = sub {
         my ($json, $hdr) = @_;
+        if (_best_effort_enabled() &&
+            ($json->{StatusText} // '') =~ /Outdated (Interface|Server) Request/) {
+            AE::log warn => "Best-effort: %s in update_rs()", $json->{StatusText};
+            $hdr->{Success} = 1;
+            $_[0] = $vs;
+            return;
+        }
         _try_to_populate_error $json, $hdr, 'update_rs', 'update a RS';
 
         my $vips = _get_vips_from_json %$json; # Can be undefined.
@@ -1252,6 +1279,13 @@ sub remove_rs {
 
     $arg{on_success} = sub {
         my ($json, $hdr) = @_;
+        if (_best_effort_enabled() &&
+            ($json->{StatusText} // '') =~ /Outdated (Interface|Server) Request/) {
+            AE::log warn => "Best-effort: %s in remove_rs()", $json->{StatusText};
+            $hdr->{Success} = 1;
+            $_[0] = undef;
+            return;
+        }
 
         _try_to_populate_error $json, $hdr, 'remove_rs', 'remove a RS';
 
