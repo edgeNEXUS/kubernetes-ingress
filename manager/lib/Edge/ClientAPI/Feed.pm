@@ -75,9 +75,22 @@ sub process {
     $self->update_config;
     AE::log info => "YAML parsed: %s", Dumper+$self->config;
 
-    $self->creds->host($self->config->data_balancer_ip);
-    $self->creds->user($self->config->data_balancer_user);
-    $self->creds->pass($self->config->data_balancer_pass);
+    my $balancer_host = (defined $ENV{EDGE_TEST_API_HOST} &&
+                         length $ENV{EDGE_TEST_API_HOST})
+        ? $ENV{EDGE_TEST_API_HOST}
+        : $self->config->data_balancer_ip;
+    my $balancer_user = (defined $ENV{EDGE_TEST_API_USER} &&
+                         length $ENV{EDGE_TEST_API_USER})
+        ? $ENV{EDGE_TEST_API_USER}
+        : $self->config->data_balancer_user;
+    my $balancer_pass = (defined $ENV{EDGE_TEST_API_PASS} &&
+                         length $ENV{EDGE_TEST_API_PASS})
+        ? $ENV{EDGE_TEST_API_PASS}
+        : $self->config->data_balancer_pass;
+
+    $self->creds->host($balancer_host);
+    $self->creds->user($balancer_user);
+    $self->creds->pass($balancer_pass);
 
     $self->{cli} = Edge::ClientAPI::coro($self->creds);
 
