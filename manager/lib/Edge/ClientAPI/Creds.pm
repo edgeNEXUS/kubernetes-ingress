@@ -151,7 +151,10 @@ sub has_guid { # $self
 
 sub get_url {
     my $self = shift;
-    return sprintf "https://%s:%u", $self->host, $self->port;
+    my $scheme = $ENV{EDGE_TEST_API_SCHEME} // 'https';
+    $scheme = lc $scheme;
+    $scheme = 'https' unless $scheme =~ /^(https?)$/;
+    return sprintf "%s://%s:%u", $scheme, $self->host, $self->port;
 }
 
 sub clone { # $self
