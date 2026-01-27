@@ -18,11 +18,18 @@ sub new {
     # Set default values.
     $args{host} = "127.0.0.1" unless defined $args{host};
     $args{port} = 443         unless defined $args{port};
+    if (!defined $args{scheme} &&
+        defined $ENV{EDGE_TEST_API_SCHEME} &&
+        length $ENV{EDGE_TEST_API_SCHEME}) {
+        $args{scheme} = $ENV{EDGE_TEST_API_SCHEME};
+    }
+    $args{scheme} = 'https' unless defined $args{scheme};
 
     my $self = bless +{}, $class;
 
-    $self->host($args{host}); # Required.
-    $self->port($args{port}); # Required.
+    $self->host($args{host});     # Required.
+    $self->port($args{port});     # Required.
+    $self->scheme($args{scheme}); # Required.
 
     $self->guid($args{guid})
         if exists $args{guid};
@@ -73,6 +80,18 @@ sub port { # $self [, $host ]
     }
 
     return $self->{port};
+}
+
+sub scheme { # $self [, $scheme ]
+    my $self = shift;
+
+    if (@_) {
+        my $scheme = lc shift;
+        die "Invalid ADC scheme" unless $scheme =~ /^(https?)$/;
+        $self->{scheme} = $scheme; # Required.
+    }
+
+    return $self->{scheme};
 }
 
 sub guid { # $self [, $guid ]
@@ -151,10 +170,7 @@ sub has_guid { # $self
 
 sub get_url {
     my $self = shift;
-    my $scheme = $ENV{EDGE_TEST_API_SCHEME} // 'https';
-    $scheme = lc $scheme;
-    $scheme = 'https' unless $scheme =~ /^(https?)$/;
-    return sprintf "%s://%s:%u", $scheme, $self->host, $self->port;
+    return sprintf "%s://%s:%u", $self->scheme, $self->host, $self->port;
 }
 
 sub clone { # $self
