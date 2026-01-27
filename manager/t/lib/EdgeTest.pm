@@ -28,6 +28,7 @@ sub vars_docker() {
 }
 
 sub apply_env_overrides(%args) {
+    my %args = @_;
     $args{api_user} = $ENV{EDGE_TEST_API_USER}
         if defined $ENV{EDGE_TEST_API_USER} && length $ENV{EDGE_TEST_API_USER};
     $args{api_pass} = $ENV{EDGE_TEST_API_PASS}
