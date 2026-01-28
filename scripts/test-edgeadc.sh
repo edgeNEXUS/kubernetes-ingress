@@ -10,6 +10,11 @@ EDGEADC_API_PASS="${EDGEADC_API_PASS:-jetnexus}"
 EDGEADC_WAIT_SECONDS="${EDGEADC_WAIT_SECONDS:-60}"
 # Override settings with EDGEADC_* environment variables as needed.
 
+if ! [[ "$EDGEADC_WAIT_SECONDS" =~ ^[0-9]+$ ]]; then
+  echo "EDGEADC_WAIT_SECONDS must be a non-negative integer, got '${EDGEADC_WAIT_SECONDS}'." >&2
+  exit 1
+fi
+
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "Missing required command: $1" >&2
